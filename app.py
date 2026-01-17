@@ -6,6 +6,7 @@ import io
 import sys
 import contextlib
 import textwrap
+import urllib.parse
 from datetime import datetime
 from moviepy.editor import *
 from moviepy.audio.fx.all import audio_loop
@@ -15,9 +16,6 @@ import random
 from proglog import ProgressBarLogger
 
 # --- CONFIGURATION ---
-# Pas besoin de configuration ImageMagick car nous ne l'utilisons plus pour le texte !
-
-# Correctif Windows (toujours utile pour le local)
 if sys.platform == 'win32':
     import asyncio
     try:
@@ -36,11 +34,11 @@ TAILLE_CARRE = 190
 PATH_LOGO_FIXE = os.path.join("images", "logo.png")
 DOSSIER_OUTPUT = "videos"
 
-# Choix automatique de la police selon le système (Windows vs Linux/Cloud)
+# Choix police
 if sys.platform == 'win32':
-    FONT_NAME = "arial.ttf" # Windows standard
+    FONT_NAME = "arial.ttf" 
 else:
-    FONT_NAME = "DejaVuSans.ttf" # Linux standard (Streamlit Cloud)
+    FONT_NAME = "DejaVuSans.ttf" 
 
 if not os.path.exists(DOSSIER_OUTPUT):
     os.makedirs(DOSSIER_OUTPUT)
@@ -60,6 +58,8 @@ st.markdown("""
     <style>
     div[data-testid="stDialog"] div[role="dialog"] { max-width: 90vw !important; max-height: 90vh !important; }
     div[data-testid="stDialog"] video { max-height: 70vh !important; width: auto !important; margin: 0 auto; display: block; }
+    /* Style pour les boutons sociaux */
+    .social-btn { text-align: center; font-size: 0.9em; margin-top: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -80,65 +80,43 @@ class StreamlitMoviePyLogger(ProgressBarLogger):
                 self.progress_bar.progress(progression)
                 self.status_text.text(f"Génération : {int(progression * 100)}%")
 
-# --- FONCTION MAGIQUE DE REMPLACEMENT TEXTE (PIL) ---
+# --- FONCTION TEXTE PIL (Compatible Cloud) ---
 def creer_texte_pil(texte, fontsize, color, font_path, size=None, duration=1.0, align='center', wrap_width=30):
-    """
-    Crée un ImageClip contenant du texte en utilisant PIL au lieu de ImageMagick.
-    Contourne 100% des erreurs de sécurité Linux.
-    """
-    # 1. Gestion de la taille du canvas
     w, h = (size if size else (FORMAT_VIDEO[0], int(fontsize * 1.5)))
-    
-    # 2. Création image transparente
     img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    
-    # 3. Chargement Police
     try:
         font = ImageFont.truetype(font_path, fontsize)
     except OSError:
-        # Fallback si police introuvable
         try:
-            font = ImageFont.truetype("DejaVuSans.ttf", fontsize) # Linux fallback
+            font = ImageFont.truetype("DejaVuSans.ttf", fontsize)
         except:
-            font = ImageFont.load_default() # Dernier recours
+            font = ImageFont.load_default()
             
-    # 4. Gestion du retour à la ligne (wrapping)
     lines = []
-    if size is not None: # Si on a une zone contrainte, on wrap
-        # On utilise textwrap pour couper intelligemment
+    if size is not None:
         raw_lines = texte.split('\n')
         for line in raw_lines:
             lines.extend(textwrap.wrap(line, width=wrap_width))
     else:
         lines = texte.split('\n')
 
-    # 5. Calcul des positions pour centrer
-    # On calcule la hauteur totale du bloc de texte
     total_text_height = sum([draw.textbbox((0, 0), line, font=font)[3] for line in lines])
     current_y = (h - total_text_height) // 2
     
     for line in lines:
-        # Centrage horizontal
         bbox = draw.textbbox((0, 0), line, font=font)
         text_w = bbox[2] - bbox[0]
         text_h = bbox[3] - bbox[1]
-        
         x = (w - text_w) // 2
-        
-        # Dessin du texte (avec petit contour noir pour lisibilité si blanc)
         if color == 'white':
-            # Ombre portée légère
             draw.text((x+2, current_y+2), line, font=font, fill="black")
-            
         draw.text((x, current_y), line, font=font, fill=color)
-        current_y += text_h + 10 # Interligne
+        current_y += text_h + 10
 
-    # 6. Sauvegarde et Conversion MoviePy
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
         img.save(tmp.name)
         clip = ImageClip(tmp.name).set_duration(duration)
-        
     return clip
 
 def blur_frame_skimage(frame):
@@ -158,7 +136,7 @@ def creer_slide_ken_burns_flou(image_path, duree):
     )
     return CompositeVideoClip([ColorClip(size=FORMAT_VIDEO, color=(15,15,15)).set_duration(duree), bg_clip.set_position("center"), fg_zoom.set_position(pos_func)], size=FORMAT_VIDEO).set_duration(duree)
 
-# --- FONCTION DE RENDU VIDEO ---
+# --- GENERATION VIDEO ---
 def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_prenom, p_tel, p_email, p_adr, p_photo, ui_status, ui_progress, ui_console):
     output_log = io.StringIO()
     with contextlib.redirect_stdout(output_log), contextlib.redirect_stderr(output_log):
@@ -167,30 +145,24 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         t_slides = DUREE_TOTALE_VIDEO - DUREE_INTRO - DUREE_OUTRO
         d_photo = (t_slides - (nb_photos - 1) * DUREE_TRANSITION) / nb_photos
 
-        ui_status.text("Phase 1 : Séquences (Texte PIL)...")
+        ui_status.text("Phase 1 : Montage...")
         
-        # INTRO AVEC TEXTE PIL
+        # INTRO
         t1 = creer_texte_pil(titre.upper(), 75, 'white', FONT_NAME, size=(900, 200), duration=DUREE_INTRO, wrap_width=15).set_position(('center', 450))
         t2 = creer_texte_pil(desc, 45, 'white', FONT_NAME, size=(850, 400), duration=DUREE_INTRO, wrap_width=30).set_position(('center', 850))
-        
         intro_bg = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_INTRO)
         all_clips.append(CompositeVideoClip([intro_bg, t1, t2]).set_duration(DUREE_INTRO).fadein(1.0))
 
+        # SLIDES
         for i, p in enumerate(photos_list):
             img_pil = ImageOps.exif_transpose(Image.open(p)).convert("RGB")
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
                 img_pil.save(tmp.name, quality=95)
                 slide = creer_slide_ken_burns_flou(tmp.name, d_photo)
             
-            # BANDEAU AVEC TEXTE PIL
             txt_content = f"{titre.upper()}\n{prix} € | {ville.upper()}"
             txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], 180), duration=d_photo)
-            
-            bandeau = CompositeVideoClip([
-                ColorClip(size=(FORMAT_VIDEO[0], 180), color=COULEUR_AGENCE_RGB), 
-                txt_img.set_position("center")
-            ], size=(FORMAT_VIDEO[0], 180)).set_position(('center', 1550)).set_duration(d_photo)
-            
+            bandeau = CompositeVideoClip([ColorClip(size=(FORMAT_VIDEO[0], 180), color=COULEUR_AGENCE_RGB), txt_img.set_position("center")], size=(FORMAT_VIDEO[0], 180)).set_position(('center', 1550)).set_duration(d_photo)
             all_clips.append(CompositeVideoClip([slide, bandeau]).set_duration(d_photo))
             if i < nb_photos - 1: all_clips.append(ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_TRANSITION))
             ui_console.code(output_log.getvalue())
@@ -198,7 +170,6 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         # OUTRO
         fond_outro = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_OUTRO)
         elems_outro = [fond_outro]
-        
         if p_photo:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
                 img = ImageOps.exif_transpose(Image.open(p_photo)).convert("RGB")
@@ -206,30 +177,24 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
                 img.save(tmp.name)
                 elems_outro.append(ImageClip(tmp.name).set_duration(DUREE_OUTRO).set_position(('center', 250)))
         
-        # Textes Outro PIL
         t_nom = creer_texte_pil(f"{p_prenom} {p_nom}".upper(), 80, 'white', FONT_NAME, size=(1000, 150), duration=DUREE_OUTRO).set_position(('center', 850))
         elems_outro.append(t_nom)
-        
         infos_str = f"📞 {p_tel}\n\n✉️ {p_email}\n\n📍 {p_adr}"
         t_infos = creer_texte_pil(infos_str, 45, 'white', FONT_NAME, size=(900, 500), duration=DUREE_OUTRO, wrap_width=35).set_position(('center', 1050))
         elems_outro.append(t_infos)
-
         if os.path.exists(PATH_LOGO_FIXE):
             elems_outro.append(ImageClip(PATH_LOGO_FIXE).resize(width=320).set_position(('center', 1600)).set_duration(DUREE_OUTRO))
-            
-        all_clips.append(CompositeVideoClip(elems_outro).fadein(0.5))
         
+        all_clips.append(CompositeVideoClip(elems_outro).fadein(0.5))
         video_base = concatenate_videoclips(all_clips, method="chain")
         
+        # CARRE & LOGO FIXE
         def pos_carre(t):
             TL, BL, BR, TR = (0, 0), (0, 1730), (890, 1730), (890, 0)
             if t < 3: return TL
-            elif t < 8: return (0, 1730 * ((t-3)/5))
-            elif t < 11: return BL
-            elif t < 16: return (890 * ((t-11)/5), 1730)
-            elif t < 19: return BR
-            elif t < 24: return (890, 1730 * (1-((t-19)/5)))
-            elif t < 27: return TR
+            elif t < 8: return (0, 1730 * ((t-3)/5)); elif t < 11: return BL
+            elif t < 16: return (890 * ((t-11)/5), 1730); elif t < 19: return BR
+            elif t < 24: return (890, 1730 * (1-((t-19)/5))); elif t < 27: return TR
             else: return (890 * (1-((t-27)/5)), 0)
         
         carre_anime = ColorClip(size=(TAILLE_CARRE, TAILLE_CARRE), color=COULEUR_AGENCE_RGB).set_duration(DUREE_TOTALE_VIDEO).set_position(pos_carre)
@@ -249,8 +214,44 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         final_v.close()
         return chemin_final
 
+# --- HELPER RESEAUX SOCIAUX ---
+def afficher_kit_social(titre, ville, prix, p_tel):
+    """Génère le texte et les boutons pour les réseaux"""
+    st.write("---")
+    st.subheader("📱 Kit de Partage Réseaux Sociaux")
+    
+    # 1. Génération du texte
+    texte_post = f"""🔥 NOUVEAUTÉ À SAISIR !
+📍 {ville} - {titre}
+💎 Prix : {prix} €
+
+Un bien d'exception vient d'arriver sur le marché ! Découvrez cette pépite en vidéo. 🎥
+
+Pour visiter ou pour plus d'infos :
+📞 {p_tel}
+✉️ MP direct
+
+#immobilier #avendre #{ville.lower().replace(' ', '')} #realestate #nouveauté"""
+    
+    c_txt, c_btn = st.columns([1.5, 1])
+    
+    with c_txt:
+        st.caption("📋 Copiez ce texte pour votre post :")
+        st.code(texte_post, language=None)
+    
+    with c_btn:
+        st.caption("🚀 Publier sur :")
+        # Liens directs vers les interfaces de post (Web)
+        link_linkedin = "https://www.linkedin.com/feed/"
+        link_facebook = "https://www.facebook.com/"
+        link_insta = "https://www.instagram.com/" # Insta ne permet pas l'upload web facilement
+        
+        st.link_button("🔵 Ouvrir LinkedIn", link_linkedin, use_container_width=True)
+        st.link_button("🔵 Ouvrir Facebook", link_facebook, use_container_width=True)
+        st.link_button("🟣 Ouvrir Instagram", link_insta, use_container_width=True)
+
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo Cloud", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo V9.6", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
 col_t.title("🏢 Studio Immo Online")
@@ -295,9 +296,22 @@ with col_form:
         else:
             ui_s, ui_p, ui_c = st.empty(), st.progress(0.0), st.expander("Logs").empty()
             try:
-                generer_video(st.session_state.photo_list, titre, desc, prix, ville, musique_choisie, p_nom, p_pre, p_tel, p_email, p_adr, p_photo, ui_s, ui_p, ui_c)
-                st.success("Vidéo terminée !"); st.rerun()
+                # Génération
+                chemin = generer_video(st.session_state.photo_list, titre, desc, prix, ville, musique_choisie, p_nom, p_pre, p_tel, p_email, p_adr, p_photo, ui_s, ui_p, ui_c)
+                st.success("Vidéo terminée !")
+                
+                # STOCKAGE DE LA DERNIERE VIDEO DANS LE STATE POUR AFFICHER LE KIT
+                st.session_state['last_video_path'] = chemin
+                st.session_state['last_video_data'] = (titre, ville, prix, p_tel)
+                st.rerun()
+                
             except Exception as e: st.error(f"Erreur : {e}")
+            
+    # AFFICHAGE DU KIT SI UNE VIDEO VIENT D'ETRE GENEREE
+    if 'last_video_path' in st.session_state and os.path.exists(st.session_state['last_video_path']):
+        # On récupère les infos pour le texte
+        v_titre, v_ville, v_prix, v_tel = st.session_state.get('last_video_data', ("Bien", "Ville", "0", "06.."))
+        afficher_kit_social(v_titre, v_ville, v_prix, v_tel)
 
 with col_list:
     st.subheader("📂 Historique")
