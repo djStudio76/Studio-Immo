@@ -1,0 +1,6 @@
+streamlit
+moviepy
+pillow
+numpy
+scikit-image
+proglog
