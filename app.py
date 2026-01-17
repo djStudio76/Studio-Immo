@@ -29,7 +29,7 @@ DUREE_INTRO = 3.0
 DUREE_OUTRO = 5.0           
 DUREE_TRANSITION = 0.3      
 COULEUR_AGENCE_RGB = (0, 136, 144) 
-FORMAT_VIDEO = (1080, 1920) 
+FORMAT_VIDEO = (720,1280) 
 TAILLE_CARRE = 190 
 PATH_LOGO_FIXE = os.path.join("images", "logo.png")
 DOSSIER_OUTPUT = "videos"
@@ -327,3 +327,4 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
