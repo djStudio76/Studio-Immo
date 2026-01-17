@@ -5,31 +5,25 @@ import re
 import io
 import sys
 import contextlib
-import shutil
+import textwrap
 from datetime import datetime
 from moviepy.editor import *
 from moviepy.audio.fx.all import audio_loop
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageFont, ImageDraw
 import numpy as np
 import random
 from proglog import ProgressBarLogger
 
-# --- CONFIGURATION HYBRIDE (WINDOWS / CLOUD) ---
-# Si on est sur Windows, on applique les correctifs
+# --- CONFIGURATION ---
+# Pas besoin de configuration ImageMagick car nous ne l'utilisons plus pour le texte !
+
+# Correctif Windows (toujours utile pour le local)
 if sys.platform == 'win32':
     import asyncio
     try:
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     except:
         pass
-    
-    # Détection Magick local (pour votre PC)
-    from moviepy.config import change_settings
-    local_magick = os.path.join(os.getcwd(), "magick", "magick.exe")
-    if os.path.exists(local_magick):
-        change_settings({"IMAGEMAGICK_BINARY": local_magick})
-
-# Sur Linux (Cloud), on laisse faire la configuration par défaut (packages.txt)
 
 # --- CONSTANTES ---
 DUREE_TOTALE_VIDEO = 32.0   
@@ -37,11 +31,16 @@ DUREE_INTRO = 3.0
 DUREE_OUTRO = 5.0           
 DUREE_TRANSITION = 0.3      
 COULEUR_AGENCE_RGB = (0, 136, 144) 
-POLICE_TEXTE = "Arial"      
 FORMAT_VIDEO = (1080, 1920) 
 TAILLE_CARRE = 190 
 PATH_LOGO_FIXE = os.path.join("images", "logo.png")
 DOSSIER_OUTPUT = "videos"
+
+# Choix automatique de la police selon le système (Windows vs Linux/Cloud)
+if sys.platform == 'win32':
+    FONT_NAME = "arial.ttf" # Windows standard
+else:
+    FONT_NAME = "DejaVuSans.ttf" # Linux standard (Streamlit Cloud)
 
 if not os.path.exists(DOSSIER_OUTPUT):
     os.makedirs(DOSSIER_OUTPUT)
@@ -81,21 +80,66 @@ class StreamlitMoviePyLogger(ProgressBarLogger):
                 self.progress_bar.progress(progression)
                 self.status_text.text(f"Génération : {int(progression * 100)}%")
 
-# --- FONCTIONS DE RENDU ---
-def creer_outro_manuelle(prenom, nom, tel, email, adresse, photo_user):
-    fond = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_OUTRO)
-    elements = [fond]
-    if photo_user:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-            img = ImageOps.exif_transpose(Image.open(photo_user)).convert("RGB")
-            img.thumbnail((500, 500), Image.Resampling.LANCZOS)
-            img.save(tmp.name)
-            elements.append(ImageClip(tmp.name).set_duration(DUREE_OUTRO).set_position(('center', 250)))
-    elements.append(TextClip(f"{prenom} {nom}".upper(), fontsize=80, color='white', font=POLICE_TEXTE).set_position(('center', 850)).set_duration(DUREE_OUTRO))
-    elements.append(TextClip(f"📞 {tel}\n\n✉️ {email}\n\n📍 {adresse}", fontsize=45, color='white', font=POLICE_TEXTE, method='caption', size=(900, None)).set_position(('center', 1050)).set_duration(DUREE_OUTRO))
-    if os.path.exists(PATH_LOGO_FIXE):
-        elements.append(ImageClip(PATH_LOGO_FIXE).resize(width=320).set_position(('center', 1600)).set_duration(DUREE_OUTRO))
-    return CompositeVideoClip(elements).fadein(0.5)
+# --- FONCTION MAGIQUE DE REMPLACEMENT TEXTE (PIL) ---
+def creer_texte_pil(texte, fontsize, color, font_path, size=None, duration=1.0, align='center', wrap_width=30):
+    """
+    Crée un ImageClip contenant du texte en utilisant PIL au lieu de ImageMagick.
+    Contourne 100% des erreurs de sécurité Linux.
+    """
+    # 1. Gestion de la taille du canvas
+    w, h = (size if size else (FORMAT_VIDEO[0], int(fontsize * 1.5)))
+    
+    # 2. Création image transparente
+    img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    
+    # 3. Chargement Police
+    try:
+        font = ImageFont.truetype(font_path, fontsize)
+    except OSError:
+        # Fallback si police introuvable
+        try:
+            font = ImageFont.truetype("DejaVuSans.ttf", fontsize) # Linux fallback
+        except:
+            font = ImageFont.load_default() # Dernier recours
+            
+    # 4. Gestion du retour à la ligne (wrapping)
+    lines = []
+    if size is not None: # Si on a une zone contrainte, on wrap
+        # On utilise textwrap pour couper intelligemment
+        raw_lines = texte.split('\n')
+        for line in raw_lines:
+            lines.extend(textwrap.wrap(line, width=wrap_width))
+    else:
+        lines = texte.split('\n')
+
+    # 5. Calcul des positions pour centrer
+    # On calcule la hauteur totale du bloc de texte
+    total_text_height = sum([draw.textbbox((0, 0), line, font=font)[3] for line in lines])
+    current_y = (h - total_text_height) // 2
+    
+    for line in lines:
+        # Centrage horizontal
+        bbox = draw.textbbox((0, 0), line, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+        
+        x = (w - text_w) // 2
+        
+        # Dessin du texte (avec petit contour noir pour lisibilité si blanc)
+        if color == 'white':
+            # Ombre portée légère
+            draw.text((x+2, current_y+2), line, font=font, fill="black")
+            
+        draw.text((x, current_y), line, font=font, fill=color)
+        current_y += text_h + 10 # Interligne
+
+    # 6. Sauvegarde et Conversion MoviePy
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+        img.save(tmp.name)
+        clip = ImageClip(tmp.name).set_duration(duration)
+        
+    return clip
 
 def blur_frame_skimage(frame):
     from skimage.filters import gaussian
@@ -114,6 +158,7 @@ def creer_slide_ken_burns_flou(image_path, duree):
     )
     return CompositeVideoClip([ColorClip(size=FORMAT_VIDEO, color=(15,15,15)).set_duration(duree), bg_clip.set_position("center"), fg_zoom.set_position(pos_func)], size=FORMAT_VIDEO).set_duration(duree)
 
+# --- FONCTION DE RENDU VIDEO ---
 def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_prenom, p_tel, p_email, p_adr, p_photo, ui_status, ui_progress, ui_console):
     output_log = io.StringIO()
     with contextlib.redirect_stdout(output_log), contextlib.redirect_stderr(output_log):
@@ -122,22 +167,58 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         t_slides = DUREE_TOTALE_VIDEO - DUREE_INTRO - DUREE_OUTRO
         d_photo = (t_slides - (nb_photos - 1) * DUREE_TRANSITION) / nb_photos
 
-        ui_status.text("Phase 1 : Séquences...")
-        t1 = TextClip(titre.upper(), fontsize=75, color='white', font=POLICE_TEXTE, method='label', size=(900, None)).set_position(('center', 450)).set_duration(DUREE_INTRO)
-        t2 = TextClip(desc, fontsize=45, color='white', font=POLICE_TEXTE, method='caption', size=(850, None)).set_position(('center', 850)).set_duration(DUREE_INTRO)
-        all_clips.append(CompositeVideoClip([ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_INTRO), t1, t2]).set_duration(DUREE_INTRO).fadein(1.0))
+        ui_status.text("Phase 1 : Séquences (Texte PIL)...")
+        
+        # INTRO AVEC TEXTE PIL
+        t1 = creer_texte_pil(titre.upper(), 75, 'white', FONT_NAME, size=(900, 200), duration=DUREE_INTRO, wrap_width=15).set_position(('center', 450))
+        t2 = creer_texte_pil(desc, 45, 'white', FONT_NAME, size=(850, 400), duration=DUREE_INTRO, wrap_width=30).set_position(('center', 850))
+        
+        intro_bg = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_INTRO)
+        all_clips.append(CompositeVideoClip([intro_bg, t1, t2]).set_duration(DUREE_INTRO).fadein(1.0))
 
         for i, p in enumerate(photos_list):
             img_pil = ImageOps.exif_transpose(Image.open(p)).convert("RGB")
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
                 img_pil.save(tmp.name, quality=95)
                 slide = creer_slide_ken_burns_flou(tmp.name, d_photo)
-            bandeau = CompositeVideoClip([ColorClip(size=(FORMAT_VIDEO[0], 180), color=COULEUR_AGENCE_RGB), TextClip(f"{titre.upper()}\n{prix} € | {ville.upper()}", fontsize=40, color='white', font=POLICE_TEXTE).set_position("center")], size=(FORMAT_VIDEO[0], 180)).set_position(('center', 1550)).set_duration(d_photo)
+            
+            # BANDEAU AVEC TEXTE PIL
+            txt_content = f"{titre.upper()}\n{prix} € | {ville.upper()}"
+            txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], 180), duration=d_photo)
+            
+            bandeau = CompositeVideoClip([
+                ColorClip(size=(FORMAT_VIDEO[0], 180), color=COULEUR_AGENCE_RGB), 
+                txt_img.set_position("center")
+            ], size=(FORMAT_VIDEO[0], 180)).set_position(('center', 1550)).set_duration(d_photo)
+            
             all_clips.append(CompositeVideoClip([slide, bandeau]).set_duration(d_photo))
             if i < nb_photos - 1: all_clips.append(ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_TRANSITION))
             ui_console.code(output_log.getvalue())
 
-        all_clips.append(creer_outro_manuelle(p_prenom, p_nom, p_tel, p_email, p_adr, p_photo))
+        # OUTRO
+        fond_outro = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_OUTRO)
+        elems_outro = [fond_outro]
+        
+        if p_photo:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+                img = ImageOps.exif_transpose(Image.open(p_photo)).convert("RGB")
+                img.thumbnail((500, 500), Image.Resampling.LANCZOS)
+                img.save(tmp.name)
+                elems_outro.append(ImageClip(tmp.name).set_duration(DUREE_OUTRO).set_position(('center', 250)))
+        
+        # Textes Outro PIL
+        t_nom = creer_texte_pil(f"{p_prenom} {p_nom}".upper(), 80, 'white', FONT_NAME, size=(1000, 150), duration=DUREE_OUTRO).set_position(('center', 850))
+        elems_outro.append(t_nom)
+        
+        infos_str = f"📞 {p_tel}\n\n✉️ {p_email}\n\n📍 {p_adr}"
+        t_infos = creer_texte_pil(infos_str, 45, 'white', FONT_NAME, size=(900, 500), duration=DUREE_OUTRO, wrap_width=35).set_position(('center', 1050))
+        elems_outro.append(t_infos)
+
+        if os.path.exists(PATH_LOGO_FIXE):
+            elems_outro.append(ImageClip(PATH_LOGO_FIXE).resize(width=320).set_position(('center', 1600)).set_duration(DUREE_OUTRO))
+            
+        all_clips.append(CompositeVideoClip(elems_outro).fadein(0.5))
+        
         video_base = concatenate_videoclips(all_clips, method="chain")
         
         def pos_carre(t):
