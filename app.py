@@ -38,12 +38,11 @@ if sys.platform == 'win32':
 DUREE_TOTALE_VIDEO = 32.0   
 DUREE_INTRO = 3.0           
 DUREE_OUTRO = 5.0           
-DUREE_TRANSITION = 0.5      
 COULEUR_AGENCE_RGB = (0, 136, 144) 
 
 # FORMAT 720p
 FORMAT_VIDEO = (720, 1280)  
-TAILLE_CARRE = int(200 * (720/1080)) 
+TAILLE_CARRE = int(190 * (720/1080)) 
 
 PATH_LOGO_FIXE = os.path.join("images", "logo.png")
 DOSSIER_OUTPUT = "videos"
@@ -159,9 +158,12 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         all_clips = []
         desc = desc[:255] # Limite stricte
         
+        # Sécurité supplémentaire au moment de la génération
+        photos_list = photos_list[:10]
+        
         nb_photos = len(photos_list)
         t_slides = DUREE_TOTALE_VIDEO - DUREE_INTRO - DUREE_OUTRO
-        d_photo = (t_slides - (nb_photos - 1) * DUREE_TRANSITION) / nb_photos
+        d_photo = t_slides / nb_photos 
 
         ui_status.text("Phase 1 : Montage...")
         
@@ -186,8 +188,10 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
             y_bandeau = int(1550*0.66)
             
             bandeau = CompositeVideoClip([ColorClip(size=(FORMAT_VIDEO[0], h_bandeau), color=COULEUR_AGENCE_RGB), txt_img.set_position("center")], size=(FORMAT_VIDEO[0], h_bandeau)).set_position(('center', y_bandeau)).set_duration(d_photo)
+            
+            # Transition CUT fluide (pas d'effet noir)
             all_clips.append(CompositeVideoClip([slide, bandeau]).set_duration(d_photo))
-            if i < nb_photos - 1: all_clips.append(ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_TRANSITION))
+            
             ui_console.code(output_log.getvalue())
 
         # OUTRO
@@ -203,10 +207,8 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         t_nom = creer_texte_pil(f"{p_prenom} {p_nom}".upper(), 80, 'white', FONT_NAME, size=(int(1000*0.66), int(150*0.66)), duration=DUREE_OUTRO).set_position(('center', int(850*0.66)))
         elems_outro.append(t_nom)
         
-        # --- CORRECTIF V10.2 : Remplacement des émojis par du texte ---
+        # Pictogrammes texte
         infos_str = f"Tél : {p_tel}\n\nEmail : {p_email}\n\nAgence : {p_adr}"
-        # ----------------------------------------------------------------
-        
         t_infos = creer_texte_pil(infos_str, 45, 'white', FONT_NAME, size=(int(900*0.66), int(500*0.66)), duration=DUREE_OUTRO, wrap_width=35).set_position(('center', int(1050*0.66)))
         elems_outro.append(t_infos)
         if os.path.exists(PATH_LOGO_FIXE):
@@ -278,10 +280,10 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo V10.2", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo by dj :)", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
-col_t.title("🏢 Studio Immo Online")
+col_t.title("🏢 Studio Immo")
 if col_r.button("🔄 Reset Global", use_container_width=True): reset_formulaire()
 
 col_form, col_list = st.columns([1.6, 0.8])
@@ -295,17 +297,25 @@ with col_form:
 
     with st.expander("🏠 Bien", expanded=False):
         c_t, c_p, c_v = st.columns(3)
-        titre, prix, ville = c_t.text_input("Titre", value="Appartement ou Maison", key="v_titre"), c_p.text_input("Prix (€)", value="450 000", key="v_prix"), c_v.text_input("Ville", value="Charenton-le-Pont", key="v_ville")
+        titre, prix, ville = c_t.text_input("Titre", value="Appartement ou Maison", key="v_titre"), c_p.text_input("Prix (€)", value="450 000", key="v_prix"), c_v.text_input("Ville", value="", key="v_ville")
         musique_choisie = st.selectbox("🎵 Musique", ["Aucune"] + ([f for f in os.listdir("musique") if f.endswith('.mp3')] if os.path.exists("musique") else []))
         desc = st.text_area("Description Intro (Max 255 car.)", key="v_desc", max_chars=255)
 
-    with st.expander("📸 Galerie (max. 10)", expanded=False):
+    with st.expander("📸 Galerie (Max 10 photos)", expanded=False):
         col_up, col_cl = st.columns([3, 1])
         up_files = col_up.file_uploader("Photos", accept_multiple_files=True, type=['jpg', 'jpeg', 'png'], label_visibility="collapsed")
         if col_cl.button("🗑️ Vider", use_container_width=True): st.session_state.photo_list = []; st.rerun()
+        
         if up_files:
             for f in up_files:
-                if f.name not in [p.name for p in st.session_state.photo_list]: st.session_state.photo_list.append(f)
+                if f.name not in [p.name for p in st.session_state.photo_list]:
+                    st.session_state.photo_list.append(f)
+            
+            # --- MODIFICATION V10.4 : Limitation à 10 photos ---
+            if len(st.session_state.photo_list) > 10:
+                st.warning("⚠️ Limite de 10 photos atteinte. Les suivantes ont été ignorées.")
+                st.session_state.photo_list = st.session_state.photo_list[:10]
+        
         if st.session_state.photo_list:
             cols_g = st.columns(4)
             for idx, photo in enumerate(st.session_state.photo_list):
@@ -350,5 +360,3 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
-
-
