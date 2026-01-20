@@ -289,17 +289,17 @@ col_form, col_list = st.columns([1.6, 0.8])
 with col_form:
     with st.expander("👤 Identité", expanded=True):
         c1, c2, c3 = st.columns(3)
-        p_pre, p_nom, p_tel = c1.text_input("Prénom", value="Daniel", key="p_pre"), c2.text_input("Nom", value="JOURNO", key="p_nom"), c3.text_input("📞 Tél", value="06 00 00 00 00", key="p_tel")
-        p_email, p_adr = st.text_input("✉️ Email", value="daniel.journo@ladresse.com", key="p_mail"), st.text_input("📍 Agence", value="92 bis rue de Paris, 94220 Charenton", key="p_adr")
+        p_pre, p_nom, p_tel = c1.text_input("Prénom", value="", key="p_pre"), c2.text_input("Nom", value="", key="p_nom"), c3.text_input("📞 Tél", value="06 00 00 00 00", key="p_tel")
+        p_email, p_adr = st.text_input("✉️ Email", value="@ladresse.com", key="p_mail"), st.text_input("📍 Agence", value="", key="p_adr")
         p_photo = st.file_uploader("🖼️ Photo Profil", type=['jpg', 'png'])
 
-    with st.expander("🏠 Bien", expanded=True):
+    with st.expander("🏠 Bien", expanded=False):
         c_t, c_p, c_v = st.columns(3)
-        titre, prix, ville = c_t.text_input("Titre", value="VILLA", key="v_titre"), c_p.text_input("Prix (€)", value="850 000", key="v_prix"), c_v.text_input("Ville", value="Charenton", key="v_ville")
+        titre, prix, ville = c_t.text_input("Titre", value="Appartement ou Maison", key="v_titre"), c_p.text_input("Prix (€)", value="450 000", key="v_prix"), c_v.text_input("Ville", value="Charenton-le-Pont", key="v_ville")
         musique_choisie = st.selectbox("🎵 Musique", ["Aucune"] + ([f for f in os.listdir("musique") if f.endswith('.mp3')] if os.path.exists("musique") else []))
         desc = st.text_area("Description Intro (Max 255 car.)", key="v_desc", max_chars=255)
 
-    with st.expander("📸 Galerie", expanded=True):
+    with st.expander("📸 Galerie (max. 10)", expanded=False):
         col_up, col_cl = st.columns([3, 1])
         up_files = col_up.file_uploader("Photos", accept_multiple_files=True, type=['jpg', 'jpeg', 'png'], label_visibility="collapsed")
         if col_cl.button("🗑️ Vider", use_container_width=True): st.session_state.photo_list = []; st.rerun()
@@ -350,4 +350,5 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
 
