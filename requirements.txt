@@ -1,6 +1,6 @@
 streamlit
 moviepy==1.0.3
-pillow
+pillow==9.5.0
 numpy<2
 scikit-image
 proglog
