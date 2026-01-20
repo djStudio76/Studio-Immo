@@ -3,10 +3,8 @@ import os
 import sys
 
 # --- 🛠️ PATCH PRIORITAIRE (A NE PAS BOUGER) ---
-# Doit être exécuté avant tout import de MoviePy
 import PIL.Image
 if not hasattr(PIL.Image, 'ANTIALIAS'):
-    # Tente d'abord la méthode moderne (Pillow 10+), sinon fallback
     try:
         PIL.Image.ANTIALIAS = PIL.Image.Resampling.LANCZOS
     except AttributeError:
@@ -18,6 +16,7 @@ import io
 import contextlib
 import textwrap
 import urllib.parse
+import gc  # <--- Ajout pour le nettoyage mémoire
 from datetime import datetime
 from moviepy.editor import *
 from moviepy.audio.fx.all import audio_loop
@@ -25,7 +24,7 @@ from PIL import Image, ImageOps, ImageFont, ImageDraw
 import numpy as np
 import random
 from proglog import ProgressBarLogger
-import traceback # Pour afficher l'erreur complète dans les logs
+import traceback
 
 # --- CONFIGURATION ---
 if sys.platform == 'win32':
@@ -35,14 +34,18 @@ if sys.platform == 'win32':
     except:
         pass
 
-# --- CONSTANTES ---
+# --- CONSTANTES OPTIMISÉES (MODE ECO) ---
 DUREE_TOTALE_VIDEO = 32.0   
 DUREE_INTRO = 3.0           
 DUREE_OUTRO = 5.0           
 DUREE_TRANSITION = 0.3      
 COULEUR_AGENCE_RGB = (0, 136, 144) 
-FORMAT_VIDEO = (1080, 1920) 
-TAILLE_CARRE = 190 
+
+# PASSAGE EN 720p POUR ÉVITER LE CRASH RAM
+FORMAT_VIDEO = (720, 1280)  
+# TAILLE_CARRE ajustée proportionnellement
+TAILLE_CARRE = int(190 * (720/1080)) 
+
 PATH_LOGO_FIXE = os.path.join("images", "logo.png")
 DOSSIER_OUTPUT = "videos"
 
@@ -93,6 +96,10 @@ class StreamlitMoviePyLogger(ProgressBarLogger):
 
 # --- FONCTION TEXTE PIL ---
 def creer_texte_pil(texte, fontsize, color, font_path, size=None, duration=1.0, align='center', wrap_width=30):
+    # Ajustement taille police proportionnel au 720p
+    ratio = 720 / 1080
+    fontsize = int(fontsize * ratio)
+    
     w, h = (size if size else (FORMAT_VIDEO[0], int(fontsize * 1.5)))
     img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -159,21 +166,28 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         ui_status.text("Phase 1 : Montage...")
         
         # INTRO
-        t1 = creer_texte_pil(titre.upper(), 75, 'white', FONT_NAME, size=(900, 200), duration=DUREE_INTRO, wrap_width=15).set_position(('center', 450))
-        t2 = creer_texte_pil(desc, 45, 'white', FONT_NAME, size=(850, 400), duration=DUREE_INTRO, wrap_width=30).set_position(('center', 850))
+        t1 = creer_texte_pil(titre.upper(), 75, 'white', FONT_NAME, size=(int(900*0.66), int(200*0.66)), duration=DUREE_INTRO, wrap_width=15).set_position(('center', int(450*0.66)))
+        t2 = creer_texte_pil(desc, 45, 'white', FONT_NAME, size=(int(850*0.66), int(400*0.66)), duration=DUREE_INTRO, wrap_width=30).set_position(('center', int(850*0.66)))
         intro_bg = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_INTRO)
         all_clips.append(CompositeVideoClip([intro_bg, t1, t2]).set_duration(DUREE_INTRO).fadein(1.0))
 
         # SLIDES
         for i, p in enumerate(photos_list):
+            # Garbage Collection forcé avant chaque slide
+            gc.collect()
+            
             img_pil = ImageOps.exif_transpose(Image.open(p)).convert("RGB")
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
                 img_pil.save(tmp.name, quality=95)
                 slide = creer_slide_ken_burns_flou(tmp.name, d_photo)
             
             txt_content = f"{titre.upper()}\n{prix} € | {ville.upper()}"
-            txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], 180), duration=d_photo)
-            bandeau = CompositeVideoClip([ColorClip(size=(FORMAT_VIDEO[0], 180), color=COULEUR_AGENCE_RGB), txt_img.set_position("center")], size=(FORMAT_VIDEO[0], 180)).set_position(('center', 1550)).set_duration(d_photo)
+            txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], int(180*0.66)), duration=d_photo)
+            
+            h_bandeau = int(180*0.66)
+            y_bandeau = int(1550*0.66)
+            
+            bandeau = CompositeVideoClip([ColorClip(size=(FORMAT_VIDEO[0], h_bandeau), color=COULEUR_AGENCE_RGB), txt_img.set_position("center")], size=(FORMAT_VIDEO[0], h_bandeau)).set_position(('center', y_bandeau)).set_duration(d_photo)
             all_clips.append(CompositeVideoClip([slide, bandeau]).set_duration(d_photo))
             if i < nb_photos - 1: all_clips.append(ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_TRANSITION))
             ui_console.code(output_log.getvalue())
@@ -184,44 +198,39 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         if p_photo:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
                 img = ImageOps.exif_transpose(Image.open(p_photo)).convert("RGB")
-                img.thumbnail((500, 500), Image.Resampling.LANCZOS)
+                img.thumbnail((400, 400), Image.Resampling.LANCZOS)
                 img.save(tmp.name)
-                elems_outro.append(ImageClip(tmp.name).set_duration(DUREE_OUTRO).set_position(('center', 250)))
+                elems_outro.append(ImageClip(tmp.name).set_duration(DUREE_OUTRO).set_position(('center', int(250*0.66))))
         
-        t_nom = creer_texte_pil(f"{p_prenom} {p_nom}".upper(), 80, 'white', FONT_NAME, size=(1000, 150), duration=DUREE_OUTRO).set_position(('center', 850))
+        t_nom = creer_texte_pil(f"{p_prenom} {p_nom}".upper(), 80, 'white', FONT_NAME, size=(int(1000*0.66), int(150*0.66)), duration=DUREE_OUTRO).set_position(('center', int(850*0.66)))
         elems_outro.append(t_nom)
         infos_str = f"📞 {p_tel}\n\n✉️ {p_email}\n\n📍 {p_adr}"
-        t_infos = creer_texte_pil(infos_str, 45, 'white', FONT_NAME, size=(900, 500), duration=DUREE_OUTRO, wrap_width=35).set_position(('center', 1050))
+        t_infos = creer_texte_pil(infos_str, 45, 'white', FONT_NAME, size=(int(900*0.66), int(500*0.66)), duration=DUREE_OUTRO, wrap_width=35).set_position(('center', int(1050*0.66)))
         elems_outro.append(t_infos)
         if os.path.exists(PATH_LOGO_FIXE):
-            elems_outro.append(ImageClip(PATH_LOGO_FIXE).resize(width=320).set_position(('center', 1600)).set_duration(DUREE_OUTRO))
+            elems_outro.append(ImageClip(PATH_LOGO_FIXE).resize(width=int(320*0.66)).set_position(('center', int(1600*0.66))).set_duration(DUREE_OUTRO))
         
         all_clips.append(CompositeVideoClip(elems_outro).fadein(0.5))
         video_base = concatenate_videoclips(all_clips, method="chain")
         
+        # Positions ajustées pour 720p (x 0.66)
+        H_VIDEO = 1280
+        W_VIDEO = 720
         def pos_carre(t):
-            TL, BL, BR, TR = (0, 0), (0, 1730), (890, 1730), (890, 0)
-            if t < 3:
-                return TL
-            elif t < 8:
-                return (0, 1730 * ((t - 3) / 5))
-            elif t < 11:
-                return BL
-            elif t < 16:
-                return (890 * ((t - 11) / 5), 1730)
-            elif t < 19:
-                return BR
-            elif t < 24:
-                return (890, 1730 * (1 - ((t - 19) / 5)))
-            elif t < 27:
-                return TR
-            else:
-                return (890 * (1 - ((t - 27) / 5)), 0)
+            TL, BL, BR, TR = (0, 0), (0, H_VIDEO-TAILLE_CARRE), (W_VIDEO-TAILLE_CARRE, H_VIDEO-TAILLE_CARRE), (W_VIDEO-TAILLE_CARRE, 0)
+            if t < 3: return TL
+            elif t < 8: return (0, (H_VIDEO-TAILLE_CARRE) * ((t - 3) / 5))
+            elif t < 11: return BL
+            elif t < 16: return ((W_VIDEO-TAILLE_CARRE) * ((t - 11) / 5), H_VIDEO-TAILLE_CARRE)
+            elif t < 19: return BR
+            elif t < 24: return (W_VIDEO-TAILLE_CARRE, (H_VIDEO-TAILLE_CARRE) * (1 - ((t - 19) / 5)))
+            elif t < 27: return TR
+            else: return ((W_VIDEO-TAILLE_CARRE) * (1 - ((t - 27) / 5)), 0)
         
         carre_anime = ColorClip(size=(TAILLE_CARRE, TAILLE_CARRE), color=COULEUR_AGENCE_RGB).set_duration(DUREE_TOTALE_VIDEO).set_position(pos_carre)
         final_clips = [video_base, carre_anime]
         if os.path.exists(PATH_LOGO_FIXE):
-            final_clips.append(ImageClip(PATH_LOGO_FIXE).set_duration(DUREE_TOTALE_VIDEO).resize(width=320).set_position(("right", "top")).margin(top=40, right=40, opacity=0))
+            final_clips.append(ImageClip(PATH_LOGO_FIXE).set_duration(DUREE_TOTALE_VIDEO).resize(width=int(320*0.66)).set_position(("right", "top")).margin(top=30, right=30, opacity=0))
         
         final_v = CompositeVideoClip(final_clips, size=FORMAT_VIDEO)
         if musique != "Aucune":
@@ -231,8 +240,16 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         st_logger = StreamlitMoviePyLogger(ui_progress, ui_status)
         nom_f = "".join(re.sub(r'[^\w\s-]', '', f"{titre}_{prix}_{ville}").strip().lower().split()) + ".mp4"
         chemin_final = os.path.join(DOSSIER_OUTPUT, nom_f)
-        final_v.write_videofile(chemin_final, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast", logger=st_logger, threads=4)
+        
+        # threads=1 pour économiser la RAM (crucial sur Cloud gratuit)
+        final_v.write_videofile(chemin_final, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast", logger=st_logger, threads=1)
         final_v.close()
+        
+        # Nettoyage final
+        del final_v
+        del all_clips
+        gc.collect()
+        
         return chemin_final
 
 # --- HELPER RESEAUX SOCIAUX ---
@@ -265,7 +282,7 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo V9.9", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo V10.0", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
 col_t.title("🏢 Studio Immo Online")
@@ -316,9 +333,7 @@ with col_form:
                 st.session_state['last_video_data'] = (titre, ville, prix, p_tel)
                 st.rerun()
             except Exception as e:
-                # Affiche l'erreur en rouge
                 st.error(f"Une erreur est survenue : {e}")
-                # Affiche le détail complet de l'erreur (traceback) pour debugger
                 st.code(traceback.format_exc())
             
     if 'last_video_path' in st.session_state and os.path.exists(st.session_state['last_video_path']):
