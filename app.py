@@ -41,7 +41,7 @@ DUREE_OUTRO = 5.0
 DUREE_TRANSITION = 0.3      
 COULEUR_AGENCE_RGB = (0, 136, 144) 
 
-# FORMAT 720p (Stable sur Cloud Gratuit)
+# FORMAT 720p
 FORMAT_VIDEO = (720, 1280)  
 TAILLE_CARRE = int(190 * (720/1080)) 
 
@@ -95,7 +95,6 @@ class StreamlitMoviePyLogger(ProgressBarLogger):
 
 # --- FONCTION TEXTE PIL ---
 def creer_texte_pil(texte, fontsize, color, font_path, size=None, duration=1.0, align='center', wrap_width=30):
-    # Ajustement taille police proportionnel au 720p
     ratio = 720 / 1080
     fontsize = int(fontsize * ratio)
     
@@ -158,9 +157,7 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
     output_log = io.StringIO()
     with contextlib.redirect_stdout(output_log), contextlib.redirect_stderr(output_log):
         all_clips = []
-        
-        # Sécurité : On coupe la description à 255 caractères max ici aussi
-        desc = desc[:255]
+        desc = desc[:255] # Limite stricte
         
         nb_photos = len(photos_list)
         t_slides = DUREE_TOTALE_VIDEO - DUREE_INTRO - DUREE_OUTRO
@@ -170,16 +167,13 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         
         # INTRO
         t1 = creer_texte_pil(titre.upper(), 75, 'white', FONT_NAME, size=(int(900*0.66), int(200*0.66)), duration=DUREE_INTRO, wrap_width=15).set_position(('center', int(450*0.66)))
-        
-        # Correction hauteur : on augmente la taille de la boite de description (400 -> 550) pour accepter 255 chars
         t2 = creer_texte_pil(desc, 45, 'white', FONT_NAME, size=(int(850*0.66), int(550*0.66)), duration=DUREE_INTRO, wrap_width=35).set_position(('center', int(800*0.66)))
-        
         intro_bg = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_INTRO)
         all_clips.append(CompositeVideoClip([intro_bg, t1, t2]).set_duration(DUREE_INTRO).fadein(1.0))
 
         # SLIDES
         for i, p in enumerate(photos_list):
-            gc.collect() # Nettoyage RAM
+            gc.collect()
             img_pil = ImageOps.exif_transpose(Image.open(p)).convert("RGB")
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
                 img_pil.save(tmp.name, quality=95)
@@ -208,7 +202,11 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         
         t_nom = creer_texte_pil(f"{p_prenom} {p_nom}".upper(), 80, 'white', FONT_NAME, size=(int(1000*0.66), int(150*0.66)), duration=DUREE_OUTRO).set_position(('center', int(850*0.66)))
         elems_outro.append(t_nom)
-        infos_str = f"📞 {p_tel}\n\n✉️ {p_email}\n\n📍 {p_adr}"
+        
+        # --- CORRECTIF V10.2 : Remplacement des émojis par du texte ---
+        infos_str = f"Tél : {p_tel}\n\nEmail : {p_email}\n\nAgence : {p_adr}"
+        # ----------------------------------------------------------------
+        
         t_infos = creer_texte_pil(infos_str, 45, 'white', FONT_NAME, size=(int(900*0.66), int(500*0.66)), duration=DUREE_OUTRO, wrap_width=35).set_position(('center', int(1050*0.66)))
         elems_outro.append(t_infos)
         if os.path.exists(PATH_LOGO_FIXE):
@@ -217,9 +215,7 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         all_clips.append(CompositeVideoClip(elems_outro).fadein(0.5))
         video_base = concatenate_videoclips(all_clips, method="chain")
         
-        # Positions ajustées 720p
-        H_VIDEO = 1280
-        W_VIDEO = 720
+        H_VIDEO, W_VIDEO = 1280, 720
         def pos_carre(t):
             TL, BL, BR, TR = (0, 0), (0, H_VIDEO-TAILLE_CARRE), (W_VIDEO-TAILLE_CARRE, H_VIDEO-TAILLE_CARRE), (W_VIDEO-TAILLE_CARRE, 0)
             if t < 3: return TL
@@ -245,7 +241,6 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         nom_f = "".join(re.sub(r'[^\w\s-]', '', f"{titre}_{prix}_{ville}").strip().lower().split()) + ".mp4"
         chemin_final = os.path.join(DOSSIER_OUTPUT, nom_f)
         
-        # threads=1 pour la stabilité RAM
         final_v.write_videofile(chemin_final, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast", logger=st_logger, threads=1)
         final_v.close()
         del final_v
@@ -283,7 +278,7 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo V10.1", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo V10.2", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
 col_t.title("🏢 Studio Immo Online")
@@ -302,8 +297,6 @@ with col_form:
         c_t, c_p, c_v = st.columns(3)
         titre, prix, ville = c_t.text_input("Titre", value="VILLA", key="v_titre"), c_p.text_input("Prix (€)", value="850 000", key="v_prix"), c_v.text_input("Ville", value="Charenton", key="v_ville")
         musique_choisie = st.selectbox("🎵 Musique", ["Aucune"] + ([f for f in os.listdir("musique") if f.endswith('.mp3')] if os.path.exists("musique") else []))
-        
-        # --- MODIFICATION ICI : LIMITE 255 CARACTERES ---
         desc = st.text_area("Description Intro (Max 255 car.)", key="v_desc", max_chars=255)
 
     with st.expander("📸 Galerie", expanded=True):
