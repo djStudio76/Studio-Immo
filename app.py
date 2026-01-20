@@ -1,9 +1,20 @@
 import streamlit as st
 import os
+import sys
+
+# --- 🛠️ PATCH PRIORITAIRE (A NE PAS BOUGER) ---
+# Doit être exécuté avant tout import de MoviePy
+import PIL.Image
+if not hasattr(PIL.Image, 'ANTIALIAS'):
+    # Tente d'abord la méthode moderne (Pillow 10+), sinon fallback
+    try:
+        PIL.Image.ANTIALIAS = PIL.Image.Resampling.LANCZOS
+    except AttributeError:
+        PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
+
 import tempfile
 import re
 import io
-import sys
 import contextlib
 import textwrap
 import urllib.parse
@@ -11,14 +22,10 @@ from datetime import datetime
 from moviepy.editor import *
 from moviepy.audio.fx.all import audio_loop
 from PIL import Image, ImageOps, ImageFont, ImageDraw
-import PIL.Image
 import numpy as np
 import random
 from proglog import ProgressBarLogger
-
-# --- 🛠️ PATCH DE COMPATIBILITÉ CRITIQUE ---
-if not hasattr(PIL.Image, 'ANTIALIAS'):
-    PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
+import traceback # Pour afficher l'erreur complète dans les logs
 
 # --- CONFIGURATION ---
 if sys.platform == 'win32':
@@ -139,7 +146,8 @@ def creer_slide_ken_burns_flou(image_path, duree):
         (FORMAT_VIDEO[1]/2 - (img_raw.h * (1.1 + 0.40 * (t/duree))) / 2) + (dir_y * amp_y * (t/duree - 0.5))
     )
     return CompositeVideoClip([ColorClip(size=FORMAT_VIDEO, color=(15,15,15)).set_duration(duree), bg_clip.set_position("center"), fg_zoom.set_position(pos_func)], size=FORMAT_VIDEO).set_duration(duree)
-    # --- GENERATION VIDEO ---
+
+# --- GENERATION VIDEO ---
 def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_prenom, p_tel, p_email, p_adr, p_photo, ui_status, ui_progress, ui_console):
     output_log = io.StringIO()
     with contextlib.redirect_stdout(output_log), contextlib.redirect_stderr(output_log):
@@ -257,7 +265,7 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo V9.8", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo V9.9", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
 col_t.title("🏢 Studio Immo Online")
@@ -307,7 +315,11 @@ with col_form:
                 st.session_state['last_video_path'] = chemin
                 st.session_state['last_video_data'] = (titre, ville, prix, p_tel)
                 st.rerun()
-            except Exception as e: st.error(f"Erreur : {e}")
+            except Exception as e:
+                # Affiche l'erreur en rouge
+                st.error(f"Une erreur est survenue : {e}")
+                # Affiche le détail complet de l'erreur (traceback) pour debugger
+                st.code(traceback.format_exc())
             
     if 'last_video_path' in st.session_state and os.path.exists(st.session_state['last_video_path']):
         v_titre, v_ville, v_prix, v_tel = st.session_state.get('last_video_data', ("Bien", "Ville", "0", "06.."))
