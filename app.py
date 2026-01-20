@@ -29,7 +29,7 @@ DUREE_INTRO = 3.0
 DUREE_OUTRO = 5.0           
 DUREE_TRANSITION = 0.3      
 COULEUR_AGENCE_RGB = (0, 136, 144) 
-FORMAT_VIDEO = (720,1280) 
+FORMAT_VIDEO = (1080, 1920) 
 TAILLE_CARRE = 190 
 PATH_LOGO_FIXE = os.path.join("images", "logo.png")
 DOSSIER_OUTPUT = "videos"
@@ -188,14 +188,25 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         all_clips.append(CompositeVideoClip(elems_outro).fadein(0.5))
         video_base = concatenate_videoclips(all_clips, method="chain")
         
-        # CARRE & LOGO FIXE
+        # --- CORRECTION DE SYNTAXE ICI ---
         def pos_carre(t):
             TL, BL, BR, TR = (0, 0), (0, 1730), (890, 1730), (890, 0)
-            if t < 3: return TL
-            elif t < 8: return (0, 1730 * ((t-3)/5)); elif t < 11: return BL
-            elif t < 16: return (890 * ((t-11)/5), 1730); elif t < 19: return BR
-            elif t < 24: return (890, 1730 * (1-((t-19)/5))); elif t < 27: return TR
-            else: return (890 * (1-((t-27)/5)), 0)
+            if t < 3:
+                return TL
+            elif t < 8:
+                return (0, 1730 * ((t - 3) / 5))
+            elif t < 11:
+                return BL
+            elif t < 16:
+                return (890 * ((t - 11) / 5), 1730)
+            elif t < 19:
+                return BR
+            elif t < 24:
+                return (890, 1730 * (1 - ((t - 19) / 5)))
+            elif t < 27:
+                return TR
+            else:
+                return (890 * (1 - ((t - 27) / 5)), 0)
         
         carre_anime = ColorClip(size=(TAILLE_CARRE, TAILLE_CARRE), color=COULEUR_AGENCE_RGB).set_duration(DUREE_TOTALE_VIDEO).set_position(pos_carre)
         final_clips = [video_base, carre_anime]
@@ -251,7 +262,7 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", link_insta, use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo V9.6", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo V9.7", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
 col_t.title("🏢 Studio Immo Online")
@@ -327,4 +338,3 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
-
