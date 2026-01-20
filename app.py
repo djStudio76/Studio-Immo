@@ -38,13 +38,13 @@ if sys.platform == 'win32':
 DUREE_TOTALE_VIDEO = 32.0   
 DUREE_INTRO = 3.0           
 DUREE_OUTRO = 5.0           
-DUREE_TRANSITION = 0.3      
+DUREE_TRANSITION = 0.5      
 COULEUR_AGENCE_RGB = (0, 136, 144) 
 
 # PASSAGE EN 720p POUR ÉVITER LE CRASH RAM
 FORMAT_VIDEO = (720, 1280)  
 # TAILLE_CARRE ajustée proportionnellement
-TAILLE_CARRE = int(190 * (720/1080)) 
+TAILLE_CARRE = int(200 * (720/1080)) 
 
 PATH_LOGO_FIXE = os.path.join("images", "logo.png")
 DOSSIER_OUTPUT = "videos"
@@ -354,3 +354,4 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
