@@ -11,9 +11,14 @@ from datetime import datetime
 from moviepy.editor import *
 from moviepy.audio.fx.all import audio_loop
 from PIL import Image, ImageOps, ImageFont, ImageDraw
+import PIL.Image
 import numpy as np
 import random
 from proglog import ProgressBarLogger
+
+# --- 🛠️ PATCH DE COMPATIBILITÉ CRITIQUE ---
+if not hasattr(PIL.Image, 'ANTIALIAS'):
+    PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
 
 # --- CONFIGURATION ---
 if sys.platform == 'win32':
@@ -58,7 +63,6 @@ st.markdown("""
     <style>
     div[data-testid="stDialog"] div[role="dialog"] { max-width: 90vw !important; max-height: 90vh !important; }
     div[data-testid="stDialog"] video { max-height: 70vh !important; width: auto !important; margin: 0 auto; display: block; }
-    /* Style pour les boutons sociaux */
     .social-btn { text-align: center; font-size: 0.9em; margin-top: 5px; }
     </style>
     """, unsafe_allow_html=True)
@@ -80,7 +84,7 @@ class StreamlitMoviePyLogger(ProgressBarLogger):
                 self.progress_bar.progress(progression)
                 self.status_text.text(f"Génération : {int(progression * 100)}%")
 
-# --- FONCTION TEXTE PIL (Compatible Cloud) ---
+# --- FONCTION TEXTE PIL ---
 def creer_texte_pil(texte, fontsize, color, font_path, size=None, duration=1.0, align='center', wrap_width=30):
     w, h = (size if size else (FORMAT_VIDEO[0], int(fontsize * 1.5)))
     img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
@@ -135,8 +139,7 @@ def creer_slide_ken_burns_flou(image_path, duree):
         (FORMAT_VIDEO[1]/2 - (img_raw.h * (1.1 + 0.40 * (t/duree))) / 2) + (dir_y * amp_y * (t/duree - 0.5))
     )
     return CompositeVideoClip([ColorClip(size=FORMAT_VIDEO, color=(15,15,15)).set_duration(duree), bg_clip.set_position("center"), fg_zoom.set_position(pos_func)], size=FORMAT_VIDEO).set_duration(duree)
-
-# --- GENERATION VIDEO ---
+    # --- GENERATION VIDEO ---
 def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_prenom, p_tel, p_email, p_adr, p_photo, ui_status, ui_progress, ui_console):
     output_log = io.StringIO()
     with contextlib.redirect_stdout(output_log), contextlib.redirect_stderr(output_log):
@@ -188,7 +191,6 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         all_clips.append(CompositeVideoClip(elems_outro).fadein(0.5))
         video_base = concatenate_videoclips(all_clips, method="chain")
         
-        # --- CORRECTION DE SYNTAXE ICI ---
         def pos_carre(t):
             TL, BL, BR, TR = (0, 0), (0, 1730), (890, 1730), (890, 0)
             if t < 3:
@@ -227,11 +229,9 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
 
 # --- HELPER RESEAUX SOCIAUX ---
 def afficher_kit_social(titre, ville, prix, p_tel):
-    """Génère le texte et les boutons pour les réseaux"""
     st.write("---")
     st.subheader("📱 Kit de Partage Réseaux Sociaux")
     
-    # 1. Génération du texte
     texte_post = f"""🔥 NOUVEAUTÉ À SAISIR !
 📍 {ville} - {titre}
 💎 Prix : {prix} €
@@ -252,17 +252,12 @@ Pour visiter ou pour plus d'infos :
     
     with c_btn:
         st.caption("🚀 Publier sur :")
-        # Liens directs vers les interfaces de post (Web)
-        link_linkedin = "https://www.linkedin.com/feed/"
-        link_facebook = "https://www.facebook.com/"
-        link_insta = "https://www.instagram.com/" # Insta ne permet pas l'upload web facilement
-        
-        st.link_button("🔵 Ouvrir LinkedIn", link_linkedin, use_container_width=True)
-        st.link_button("🔵 Ouvrir Facebook", link_facebook, use_container_width=True)
-        st.link_button("🟣 Ouvrir Instagram", link_insta, use_container_width=True)
+        st.link_button("🔵 Ouvrir LinkedIn", "https://www.linkedin.com/feed/", use_container_width=True)
+        st.link_button("🔵 Ouvrir Facebook", "https://www.facebook.com/", use_container_width=True)
+        st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo V9.7", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo V9.8", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
 col_t.title("🏢 Studio Immo Online")
@@ -307,20 +302,14 @@ with col_form:
         else:
             ui_s, ui_p, ui_c = st.empty(), st.progress(0.0), st.expander("Logs").empty()
             try:
-                # Génération
                 chemin = generer_video(st.session_state.photo_list, titre, desc, prix, ville, musique_choisie, p_nom, p_pre, p_tel, p_email, p_adr, p_photo, ui_s, ui_p, ui_c)
                 st.success("Vidéo terminée !")
-                
-                # STOCKAGE DE LA DERNIERE VIDEO DANS LE STATE POUR AFFICHER LE KIT
                 st.session_state['last_video_path'] = chemin
                 st.session_state['last_video_data'] = (titre, ville, prix, p_tel)
                 st.rerun()
-                
             except Exception as e: st.error(f"Erreur : {e}")
             
-    # AFFICHAGE DU KIT SI UNE VIDEO VIENT D'ETRE GENEREE
     if 'last_video_path' in st.session_state and os.path.exists(st.session_state['last_video_path']):
-        # On récupère les infos pour le texte
         v_titre, v_ville, v_prix, v_tel = st.session_state.get('last_video_data', ("Bien", "Ville", "0", "06.."))
         afficher_kit_social(v_titre, v_ville, v_prix, v_tel)
 
