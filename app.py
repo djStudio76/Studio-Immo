@@ -338,7 +338,7 @@ with col_form:
 
     with st.expander("🏠 Bien", expanded=False):
         c_t, c_p, c_v = st.columns(3)
-        titre, prix, ville = c_t.text_input("Titre", value="Maison ou Appartement", key="v_titre"), c_p.text_input("Prix (€)", value="ex : 450000", key="v_prix"), c_v.text_input("Ville", value="ex : Charenton-le-Pont", key="v_ville")
+        titre, prix, ville = c_t.text_input("Titre", value="Maison ou Appartement", key="v_titre"), c_p.text_input("Prix (€)", value="ex : 450000", key="v_prix"), c_v.text_input("Ville", value="", key="v_ville")
         musique_choisie = st.selectbox("🎵 Musique", ["Aucune"] + ([f for f in os.listdir("musique") if f.endswith('.mp3')] if os.path.exists("musique") else []))
         desc = st.text_area("Description Intro (Max 230 car.)", key="v_desc", max_chars=230)
 
