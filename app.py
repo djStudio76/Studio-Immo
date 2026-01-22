@@ -243,27 +243,31 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         all_clips.append(CompositeVideoClip(elems_outro).fadein(0.5))
         video_base = concatenate_videoclips(all_clips, method="chain")
         
-        # --- CARRE ANIME ---
+        # --- CARRE ANIME & FOOTER ---
         H_VIDEO, W_VIDEO = 1280, 720
+        h_footer = 60 # Hauteur du bandeau noir
+        
+        # Ajustement du mouvement du carré : il s'arrête AU DESSUS du footer
+        Y_MAX = H_VIDEO - TAILLE_CARRE - h_footer 
+        
         def pos_carre(t):
-            TL, BL, BR, TR = (0, 0), (0, H_VIDEO-TAILLE_CARRE), (W_VIDEO-TAILLE_CARRE, H_VIDEO-TAILLE_CARRE), (W_VIDEO-TAILLE_CARRE, 0)
+            TL, BL, BR, TR = (0, 0), (0, Y_MAX), (W_VIDEO-TAILLE_CARRE, Y_MAX), (W_VIDEO-TAILLE_CARRE, 0)
             if t < 3: return TL
-            elif t < 8: return (0, (H_VIDEO-TAILLE_CARRE) * ((t - 3) / 5))
+            elif t < 8: return (0, Y_MAX * ((t - 3) / 5))
             elif t < 11: return BL
-            elif t < 16: return ((W_VIDEO-TAILLE_CARRE) * ((t - 11) / 5), H_VIDEO-TAILLE_CARRE)
+            elif t < 16: return ((W_VIDEO-TAILLE_CARRE) * ((t - 11) / 5), Y_MAX)
             elif t < 19: return BR
-            elif t < 24: return (W_VIDEO-TAILLE_CARRE, (H_VIDEO-TAILLE_CARRE) * (1 - ((t - 19) / 5)))
+            elif t < 24: return (W_VIDEO-TAILLE_CARRE, Y_MAX * (1 - ((t - 19) / 5)))
             elif t < 27: return TR
             else: return ((W_VIDEO-TAILLE_CARRE) * (1 - ((t - 27) / 5)), 0)
         
         carre_anime = ColorClip(size=(TAILLE_CARRE, TAILLE_CARRE), color=COULEUR_AGENCE_RGB).set_duration(DUREE_TOTALE_VIDEO).set_position(pos_carre)
         
-        # --- BANDEAU BAS NOIR (NEW) ---
+        # --- BANDEAU BAS NOIR ---
         txt_footer_content = "Transaction - Location - Gestion - Syndic - 01 41 79 04 75"
-        h_footer = 60 # Hauteur du bandeau
         bg_footer = ColorClip(size=(FORMAT_VIDEO[0], h_footer), color=(0,0,0)).set_opacity(1.0)
-        # Texte blanc, police taille 22 pour tenir sur une ligne
-        txt_footer = creer_texte_pil(txt_footer_content, 22, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], h_footer), duration=DUREE_TOTALE_VIDEO)
+        # wrap_width=200 pour interdire le retour à la ligne + police ajustée (20)
+        txt_footer = creer_texte_pil(txt_footer_content, 20, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], h_footer), duration=DUREE_TOTALE_VIDEO, wrap_width=200)
         
         footer_clip = CompositeVideoClip([bg_footer, txt_footer.set_position("center")], size=(FORMAT_VIDEO[0], h_footer))
         footer_clip = footer_clip.set_position(("center", "bottom")).set_duration(DUREE_TOTALE_VIDEO)
@@ -320,10 +324,10 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo V11.1 by dj;)", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo V11.2", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
-col_t.title("🏢 Studio Immo")
+col_t.title("🏢 Studio Immo Online")
 if col_r.button("🔄 Reset Global", use_container_width=True): reset_formulaire()
 
 col_form, col_list = st.columns([1.6, 0.8])
@@ -331,10 +335,10 @@ col_form, col_list = st.columns([1.6, 0.8])
 with col_form:
     with st.expander("👤 Identité", expanded=True):
         c1, c2, c3 = st.columns(3)
-        p_pre, p_nom, p_tel = c1.text_input("Prénom", value="Daniel", key="p_pre"), c2.text_input("Nom", value="JOURNO", key="p_nom"), c3.text_input("📞 Tél", value="06 00 00 00 00", key="p_tel")
+        p_pre, p_nom, p_tel = c1.text_input("Prénom", value="", key="p_pre"), c2.text_input("Nom", value="", key="p_nom"), c3.text_input("📞 Tél", value="06", key="p_tel")
         
         ca, cb = st.columns(2)
-        p_email = ca.text_input("✉️ Email", value="daniel.journo@ladresse.com", key="p_mail")
+        p_email = ca.text_input("✉️ Email", value="@ladresse.com", key="p_mail")
         
         choix_agence = cb.selectbox("📍 Choisir l'Agence", list(AGENCES_DATA.keys()))
         adresse_auto = AGENCES_DATA[choix_agence]["adresse"]
@@ -344,7 +348,7 @@ with col_form:
 
     with st.expander("🏠 Bien", expanded=False):
         c_t, c_p, c_v = st.columns(3)
-        titre, prix, ville = c_t.text_input("Titre", value="Appartement ou Maison", key="v_titre"), c_p.text_input("Prix (€)", value="450000", key="v_prix"), c_v.text_input("Ville", value="", key="v_ville")
+        titre, prix, ville = c_t.text_input("Titre", value="", key="v_titre"), c_p.text_input("Prix (€)", value="", key="v_prix"), c_v.text_input("Ville", value="", key="v_ville")
         musique_choisie = st.selectbox("🎵 Musique", ["Aucune"] + ([f for f in os.listdir("musique") if f.endswith('.mp3')] if os.path.exists("musique") else []))
         desc = st.text_area("Description Intro (Max 255 car.)", key="v_desc", max_chars=255)
 
