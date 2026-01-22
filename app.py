@@ -58,7 +58,7 @@ COULEUR_AGENCE_RGB = (0, 136, 144)
 
 # FORMAT 720p
 FORMAT_VIDEO = (720, 1280)  
-TAILLE_CARRE = int(190 * (720/1080)) 
+TAILLE_CARRE = int(200 * (720/1080)) 
 
 PATH_LOGO_FIXE = os.path.join("images", "logo.png")
 DOSSIER_OUTPUT = "videos"
@@ -288,13 +288,14 @@ def afficher_kit_social(titre, ville, prix, p_tel):
 📍 {ville} - {titre}
 💎 Prix : {prix} €
 
-Un bien d'exception vient d'arriver sur le marché ! Découvrez cette pépite en vidéo. 🎥
+Nouveau dans votre agence L'Adresse {ville} ! 
+Découvrez cette pépite en vidéo. 🎥
 
 Pour visiter ou pour plus d'infos :
 📞 {p_tel}
 ✉️ MP direct
 
-#immobilier #avendre #{ville.lower().replace(' ', '')} #realestate #nouveauté"""
+#immobilier #avendre #{ville.lower().replace(' ', '')} #valdemarne #realestate #nouveauté #video"""
     
     c_txt, c_btn = st.columns([1.5, 1])
     
@@ -309,10 +310,10 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo V11.0", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo by dj :)", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
-col_t.title("🏢 Studio Immo Online")
+col_t.title("🏢 Studio Immo")
 if col_r.button("🔄 Reset Global", use_container_width=True): reset_formulaire()
 
 col_form, col_list = st.columns([1.6, 0.8])
@@ -320,11 +321,11 @@ col_form, col_list = st.columns([1.6, 0.8])
 with col_form:
     with st.expander("👤 Identité", expanded=True):
         c1, c2, c3 = st.columns(3)
-        p_pre, p_nom, p_tel = c1.text_input("Prénom", value="Daniel", key="p_pre"), c2.text_input("Nom", value="JOURNO", key="p_nom"), c3.text_input("📞 Tél", value="06 00 00 00 00", key="p_tel")
+        p_pre, p_nom, p_tel = c1.text_input("Prénom", value="", key="p_pre"), c2.text_input("Nom", value="", key="p_nom"), c3.text_input("📞 Tél", value="06 00 00 00 00", key="p_tel")
         
         # --- MODIFICATION INTERFACE AGENCE ---
         ca, cb = st.columns(2)
-        p_email = ca.text_input("✉️ Email", value="daniel.journo@ladresse.com", key="p_mail")
+        p_email = ca.text_input("✉️ Email", value="@ladresse.com", key="p_mail")
         
         # Menu déroulant Agence
         choix_agence = cb.selectbox("📍 Choisir l'Agence", list(AGENCES_DATA.keys()))
@@ -339,7 +340,7 @@ with col_form:
         c_t, c_p, c_v = st.columns(3)
         titre, prix, ville = c_t.text_input("Titre", value="Maison ou Appartement", key="v_titre"), c_p.text_input("Prix (€)", value="ex : 450000", key="v_prix"), c_v.text_input("Ville", value="ex : Charenton-le-Pont", key="v_ville")
         musique_choisie = st.selectbox("🎵 Musique", ["Aucune"] + ([f for f in os.listdir("musique") if f.endswith('.mp3')] if os.path.exists("musique") else []))
-        desc = st.text_area("Description Intro (Max 255 car.)", key="v_desc", max_chars=255)
+        desc = st.text_area("Description Intro (Max 230 car.)", key="v_desc", max_chars=230)
 
     with st.expander("📸 Galerie (Max 10 photos)", expanded=False):
         col_up, col_cl = st.columns([3, 1])
@@ -400,4 +401,3 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
-
