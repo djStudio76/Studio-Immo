@@ -38,15 +38,15 @@ if sys.platform == 'win32':
 AGENCES_DATA = {
     "Charenton": {
         "adresse": "92 bis rue de Paris, 94220 Charenton-le-Pont",
-        "img": "agence-cht.png"
+        "img": "agence-cht.jpg"
     },
     "Alfortville": {
         "adresse": "125 rue Paul Vaillant Couturier, 94140 Alfortville",
-        "img": "agence-alf.png"
+        "img": "agence-alf.jpg"
     },
     "Maison Alfort": {
         "adresse": "8 avenue de la République, 94700 Maison-Alfort",
-        "img": "agence-maf.png"
+        "img": "agence-maf.jpg"
     }
 }
 
@@ -400,3 +400,4 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
