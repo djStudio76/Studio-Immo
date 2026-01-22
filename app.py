@@ -34,6 +34,22 @@ if sys.platform == 'win32':
     except:
         pass
 
+# --- DONNÉES AGENCES (NOUVEAU) ---
+AGENCES_DATA = {
+    "Charenton": {
+        "adresse": "92 bis rue de Paris, 94220 Charenton-le-Pont",
+        "img": "agence-cht.png"
+    },
+    "Alfortville": {
+        "adresse": "125 rue Paul Vaillant Couturier, 94140 Alfortville",
+        "img": "agence-alf.png"
+    },
+    "Maison Alfort": {
+        "adresse": "8 avenue de la République, 94700 Maison-Alfort",
+        "img": "agence-maf.png"
+    }
+}
+
 # --- CONSTANTES (MODE ECO 720p) ---
 DUREE_TOTALE_VIDEO = 32.0   
 DUREE_INTRO = 3.0           
@@ -152,14 +168,12 @@ def creer_slide_ken_burns_flou(image_path, duree):
     return CompositeVideoClip([ColorClip(size=FORMAT_VIDEO, color=(15,15,15)).set_duration(duree), bg_clip.set_position("center"), fg_zoom.set_position(pos_func)], size=FORMAT_VIDEO).set_duration(duree)
 
 # --- GENERATION VIDEO ---
-def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_prenom, p_tel, p_email, p_adr, p_photo, ui_status, ui_progress, ui_console):
+def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_prenom, p_tel, p_email, p_adr, p_photo, agence_nom, ui_status, ui_progress, ui_console):
     output_log = io.StringIO()
     with contextlib.redirect_stdout(output_log), contextlib.redirect_stderr(output_log):
         all_clips = []
         desc = desc[:255] # Limite stricte
-        
-        # Sécurité supplémentaire au moment de la génération
-        photos_list = photos_list[:10]
+        photos_list = photos_list[:10] # Sécurité max 10 photos
         
         nb_photos = len(photos_list)
         t_slides = DUREE_TOTALE_VIDEO - DUREE_INTRO - DUREE_OUTRO
@@ -167,11 +181,27 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
 
         ui_status.text("Phase 1 : Montage...")
         
-        # INTRO
+        # --- INTRO ---
         t1 = creer_texte_pil(titre.upper(), 75, 'white', FONT_NAME, size=(int(900*0.66), int(200*0.66)), duration=DUREE_INTRO, wrap_width=15).set_position(('center', int(450*0.66)))
         t2 = creer_texte_pil(desc, 45, 'white', FONT_NAME, size=(int(850*0.66), int(550*0.66)), duration=DUREE_INTRO, wrap_width=35).set_position(('center', int(800*0.66)))
         intro_bg = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_INTRO)
-        all_clips.append(CompositeVideoClip([intro_bg, t1, t2]).set_duration(DUREE_INTRO).fadein(1.0))
+        
+        intro_elements = [intro_bg, t1, t2]
+
+        # AJOUT IMAGE AGENCE SUR INTRO
+        nom_img_agence = AGENCES_DATA[agence_nom]["img"]
+        path_img_agence = os.path.join("images", nom_img_agence)
+        
+        if os.path.exists(path_img_agence):
+            # On charge l'image de l'agence
+            img_ag = ImageClip(path_img_agence).set_duration(DUREE_INTRO)
+            # On redimensionne (largeur max environ 400px en 720p)
+            img_ag = img_ag.resize(width=int(400 * 0.66)) 
+            # On la place en bas (y=1300*0.66 environ)
+            img_ag = img_ag.set_position(('center', int(1350 * 0.66)))
+            intro_elements.append(img_ag)
+            
+        all_clips.append(CompositeVideoClip(intro_elements).set_duration(DUREE_INTRO).fadein(1.0))
 
         # SLIDES
         for i, p in enumerate(photos_list):
@@ -189,9 +219,7 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
             
             bandeau = CompositeVideoClip([ColorClip(size=(FORMAT_VIDEO[0], h_bandeau), color=COULEUR_AGENCE_RGB), txt_img.set_position("center")], size=(FORMAT_VIDEO[0], h_bandeau)).set_position(('center', y_bandeau)).set_duration(d_photo)
             
-            # Transition CUT fluide (pas d'effet noir)
             all_clips.append(CompositeVideoClip([slide, bandeau]).set_duration(d_photo))
-            
             ui_console.code(output_log.getvalue())
 
         # OUTRO
@@ -207,10 +235,11 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         t_nom = creer_texte_pil(f"{p_prenom} {p_nom}".upper(), 80, 'white', FONT_NAME, size=(int(1000*0.66), int(150*0.66)), duration=DUREE_OUTRO).set_position(('center', int(850*0.66)))
         elems_outro.append(t_nom)
         
-        # Pictogrammes texte
+        # Infos Texte
         infos_str = f"Tél : {p_tel}\n\nEmail : {p_email}\n\nAgence : {p_adr}"
         t_infos = creer_texte_pil(infos_str, 45, 'white', FONT_NAME, size=(int(900*0.66), int(500*0.66)), duration=DUREE_OUTRO, wrap_width=35).set_position(('center', int(1050*0.66)))
         elems_outro.append(t_infos)
+        
         if os.path.exists(PATH_LOGO_FIXE):
             elems_outro.append(ImageClip(PATH_LOGO_FIXE).resize(width=int(320*0.66)).set_position(('center', int(1600*0.66))).set_duration(DUREE_OUTRO))
         
@@ -280,10 +309,10 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo by dj :)", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo V11.0", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
-col_t.title("🏢 Studio Immo")
+col_t.title("🏢 Studio Immo Online")
 if col_r.button("🔄 Reset Global", use_container_width=True): reset_formulaire()
 
 col_form, col_list = st.columns([1.6, 0.8])
@@ -291,13 +320,24 @@ col_form, col_list = st.columns([1.6, 0.8])
 with col_form:
     with st.expander("👤 Identité", expanded=True):
         c1, c2, c3 = st.columns(3)
-        p_pre, p_nom, p_tel = c1.text_input("Prénom", value="", key="p_pre"), c2.text_input("Nom", value="", key="p_nom"), c3.text_input("📞 Tél", value="06 00 00 00 00", key="p_tel")
-        p_email, p_adr = st.text_input("✉️ Email", value="@ladresse.com", key="p_mail"), st.text_input("📍 Agence", value="", key="p_adr")
+        p_pre, p_nom, p_tel = c1.text_input("Prénom", value="Daniel", key="p_pre"), c2.text_input("Nom", value="JOURNO", key="p_nom"), c3.text_input("📞 Tél", value="06 00 00 00 00", key="p_tel")
+        
+        # --- MODIFICATION INTERFACE AGENCE ---
+        ca, cb = st.columns(2)
+        p_email = ca.text_input("✉️ Email", value="daniel.journo@ladresse.com", key="p_mail")
+        
+        # Menu déroulant Agence
+        choix_agence = cb.selectbox("📍 Choisir l'Agence", list(AGENCES_DATA.keys()))
+        # Récupération automatique de l'adresse
+        adresse_auto = AGENCES_DATA[choix_agence]["adresse"]
+        # Affichage (Read-only pour éviter les erreurs)
+        p_adr = st.text_input("Adresse Agence (Auto)", value=adresse_auto, disabled=True)
+        
         p_photo = st.file_uploader("🖼️ Photo Profil", type=['jpg', 'png'])
 
     with st.expander("🏠 Bien", expanded=False):
         c_t, c_p, c_v = st.columns(3)
-        titre, prix, ville = c_t.text_input("Titre", value="Appartement ou Maison", key="v_titre"), c_p.text_input("Prix (€)", value="450 000", key="v_prix"), c_v.text_input("Ville", value="", key="v_ville")
+        titre, prix, ville = c_t.text_input("Titre", value="Maison ou Appartement", key="v_titre"), c_p.text_input("Prix (€)", value="ex : 450000", key="v_prix"), c_v.text_input("Ville", value="ex : Charenton-le-Pont", key="v_ville")
         musique_choisie = st.selectbox("🎵 Musique", ["Aucune"] + ([f for f in os.listdir("musique") if f.endswith('.mp3')] if os.path.exists("musique") else []))
         desc = st.text_area("Description Intro (Max 255 car.)", key="v_desc", max_chars=255)
 
@@ -311,7 +351,6 @@ with col_form:
                 if f.name not in [p.name for p in st.session_state.photo_list]:
                     st.session_state.photo_list.append(f)
             
-            # --- MODIFICATION V10.4 : Limitation à 10 photos ---
             if len(st.session_state.photo_list) > 10:
                 st.warning("⚠️ Limite de 10 photos atteinte. Les suivantes ont été ignorées.")
                 st.session_state.photo_list = st.session_state.photo_list[:10]
@@ -333,7 +372,8 @@ with col_form:
         else:
             ui_s, ui_p, ui_c = st.empty(), st.progress(0.0), st.expander("Logs").empty()
             try:
-                chemin = generer_video(st.session_state.photo_list, titre, desc, prix, ville, musique_choisie, p_nom, p_pre, p_tel, p_email, p_adr, p_photo, ui_s, ui_p, ui_c)
+                # On passe 'choix_agence' à la fonction de génération
+                chemin = generer_video(st.session_state.photo_list, titre, desc, prix, ville, musique_choisie, p_nom, p_pre, p_tel, p_email, p_adr, p_photo, choix_agence, ui_s, ui_p, ui_c)
                 st.success("Vidéo terminée !")
                 st.session_state['last_video_path'] = chemin
                 st.session_state['last_video_data'] = (titre, ville, prix, p_tel)
