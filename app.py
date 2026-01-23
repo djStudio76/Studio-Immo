@@ -38,15 +38,15 @@ if sys.platform == 'win32':
 AGENCES_DATA = {
     "Charenton": {
         "adresse": "92 bis rue de Paris, 94220 Charenton-le-Pont",
-        "img": "agence-cht.png"
+        "img": "agence-cht.jpg"
     },
     "Alfortville": {
         "adresse": "125 rue Paul Vaillant Couturier, 94140 Alfortville",
-        "img": "agence-alf.png"
+        "img": "agence-alf.jpg"
     },
     "Maison Alfort": {
         "adresse": "8 avenue de la République, 94700 Maison-Alfort",
-        "img": "agence-maf.png"
+        "img": "agence-maf.jpg"
     }
 }
 
@@ -324,10 +324,10 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo V11.2", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo by dj ;)", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
-col_t.title("🏢 Studio Immo Online")
+col_t.title("🏢 Studio Immo v11.4")
 if col_r.button("🔄 Reset Global", use_container_width=True): reset_formulaire()
 
 col_form, col_list = st.columns([1.6, 0.8])
@@ -410,3 +410,4 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
