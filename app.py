@@ -108,7 +108,7 @@ class StreamlitMoviePyLogger(ProgressBarLogger):
                 self.progress_bar.progress(progression)
                 self.status_text.text(f"Génération : {int(progression * 100)}%")
 
-# --- FONCTION TEXTE PIL ---
+# --- FONCTION TEXTE PIL (SANS OMBRE) ---
 def creer_texte_pil(texte, fontsize, color, font_path, size=None, duration=1.0, align='center', wrap_width=30):
     ratio = 720 / 1080
     fontsize = int(fontsize * ratio)
@@ -140,8 +140,8 @@ def creer_texte_pil(texte, fontsize, color, font_path, size=None, duration=1.0, 
         text_w = bbox[2] - bbox[0]
         text_h = bbox[3] - bbox[1]
         x = (w - text_w) // 2
-        if color == 'white':
-            draw.text((x+1, current_y+1), line, font=font, fill="black")
+        
+        # Dessin simple sans ombre
         draw.text((x, current_y), line, font=font, fill=color)
         current_y += text_h + 10
 
@@ -172,16 +172,31 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
     output_log = io.StringIO()
     with contextlib.redirect_stdout(output_log), contextlib.redirect_stderr(output_log):
         all_clips = []
-        desc = desc[:230] # Limite stricte
+        desc = desc[:230] # Limite stricte (votre valeur)
         photos_list = photos_list[:10] # Sécurité max 10 photos
         
         nb_photos = len(photos_list)
         t_slides = DUREE_TOTALE_VIDEO - DUREE_INTRO - DUREE_OUTRO
         d_photo = t_slides / nb_photos 
 
+        # Durée totale réelle de la partie SLIDES (pour le calque vert)
+        duree_totale_slides = nb_photos * d_photo
+
+        # --- GEOMETRIE EMPILEMENT ---
+        H_VIDEO = FORMAT_VIDEO[1] # 1280
+        h_footer = 60 # Hauteur bandeau noir bas
+        
+        # Le carré rebondit SUR le footer noir
+        Y_MAX_CARRE = H_VIDEO - h_footer - TAILLE_CARRE
+        
+        # Le bandeau vert est posé SUR la ligne de rebond du carré
+        h_bandeau_vert = int(180 * 0.66) 
+        y_bandeau_vert = Y_MAX_CARRE - h_bandeau_vert
+
         ui_status.text("Phase 1 : Montage...")
         
         # --- INTRO ---
+        # Vos réglages spécifiques conservés
         t1 = creer_texte_pil(titre.upper(), 60, 'white', FONT_NAME, size=(int(1060*0.66), int(272*0.66)), duration=DUREE_INTRO, wrap_width=30).set_position(('center', int(480*0.66)))
         t2 = creer_texte_pil(desc, 40, 'white', FONT_NAME, size=(int(1060*0.66), int(550*0.66)), duration=DUREE_INTRO, wrap_width=50).set_position(('center', int(800*0.66)))
         intro_bg = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_INTRO)
@@ -200,7 +215,8 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
             
         all_clips.append(CompositeVideoClip(intro_elements).set_duration(DUREE_INTRO).fadein(1.0))
 
-        # SLIDES
+        # --- SLIDES (PHOTOS UNIQUEMENT) ---
+        # On ne met plus le bandeau vert ici, juste les images de fond
         for i, p in enumerate(photos_list):
             gc.collect()
             img_pil = ImageOps.exif_transpose(Image.open(p)).convert("RGB")
@@ -208,15 +224,7 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
                 img_pil.save(tmp.name, quality=95)
                 slide = creer_slide_ken_burns_flou(tmp.name, d_photo)
             
-            txt_content = f"{titre.upper()}\n{prix} € | {ville.upper()}"
-            txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], int(180*0.66)), duration=d_photo, wrap_width=120)
-            
-            h_bandeau = int(180*0.66)
-            y_bandeau = int(1550*0.66)
-            
-            bandeau = CompositeVideoClip([ColorClip(size=(FORMAT_VIDEO[0], h_bandeau), color=COULEUR_AGENCE_RGB), txt_img.set_position("center")], size=(FORMAT_VIDEO[0], h_bandeau)).set_position(('center', y_bandeau)).set_duration(d_photo)
-            
-            all_clips.append(CompositeVideoClip([slide, bandeau]).set_duration(d_photo))
+            all_clips.append(slide)
             ui_console.code(output_log.getvalue())
 
         # OUTRO
@@ -241,39 +249,53 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
             elems_outro.append(ImageClip(PATH_LOGO_FIXE).resize(width=int(320*0.66)).set_position(('center', int(1600*0.66))).set_duration(DUREE_OUTRO))
         
         all_clips.append(CompositeVideoClip(elems_outro).fadein(0.5))
+        
+        # --- CALQUE 1 : LA VIDÉO DE FOND ---
         video_base = concatenate_videoclips(all_clips, method="chain")
         
-        # --- CARRE ANIME & FOOTER ---
-        H_VIDEO, W_VIDEO = 1280, 720
-        h_footer = 60 # Hauteur du bandeau noir
-        
-        # Ajustement du mouvement du carré : il s'arrête AU DESSUS du footer
-        Y_MAX = H_VIDEO - TAILLE_CARRE - h_footer 
-        
+        # --- CALQUE 2 : LE CARRÉ ANIMÉ ---
+        W_VIDEO = FORMAT_VIDEO[0] 
         def pos_carre(t):
-            TL, BL, BR, TR = (0, 0), (0, Y_MAX), (W_VIDEO-TAILLE_CARRE, Y_MAX), (W_VIDEO-TAILLE_CARRE, 0)
+            TL, BL, BR, TR = (0, 0), (0, Y_MAX_CARRE), (W_VIDEO-TAILLE_CARRE, Y_MAX_CARRE), (W_VIDEO-TAILLE_CARRE, 0)
             if t < 3: return TL
-            elif t < 8: return (0, Y_MAX * ((t - 3) / 5))
+            elif t < 8: return (0, Y_MAX_CARRE * ((t - 3) / 5))
             elif t < 11: return BL
-            elif t < 16: return ((W_VIDEO-TAILLE_CARRE) * ((t - 11) / 5), Y_MAX)
+            elif t < 16: return ((W_VIDEO-TAILLE_CARRE) * ((t - 11) / 5), Y_MAX_CARRE)
             elif t < 19: return BR
-            elif t < 24: return (W_VIDEO-TAILLE_CARRE, Y_MAX * (1 - ((t - 19) / 5)))
+            elif t < 24: return (W_VIDEO-TAILLE_CARRE, Y_MAX_CARRE * (1 - ((t - 19) / 5)))
             elif t < 27: return TR
             else: return ((W_VIDEO-TAILLE_CARRE) * (1 - ((t - 27) / 5)), 0)
         
         carre_anime = ColorClip(size=(TAILLE_CARRE, TAILLE_CARRE), color=COULEUR_AGENCE_RGB).set_duration(DUREE_TOTALE_VIDEO).set_position(pos_carre)
         
-        # --- BANDEAU BAS NOIR ---
+        # --- CALQUE 3 : LE BANDEAU VERT (PRIX/VILLE) ---
+        txt_content = f"{titre.upper()}\n{prix} € | {ville.upper()}"
+        # On définit wrap_width=50 pour autoriser un titre plus long sur une ligne
+        txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], h_bandeau_vert), duration=duree_totale_slides, wrap_width=50)
+        
+        bandeau_vert_clip = CompositeVideoClip(
+            [ColorClip(size=(FORMAT_VIDEO[0], h_bandeau_vert), color=COULEUR_AGENCE_RGB), 
+             txt_img.set_position("center")], 
+            size=(FORMAT_VIDEO[0], h_bandeau_vert)
+        )
+        bandeau_vert_clip = bandeau_vert_clip.set_position(('center', y_bandeau_vert)).set_start(DUREE_INTRO)
+        
+        # --- CALQUE 4 : BANDEAU BAS NOIR (TOUJOURS AU DESSUS) ---
         txt_footer_content = "Transaction - Location - Gestion - Syndic - 01 41 79 04 75"
         bg_footer = ColorClip(size=(FORMAT_VIDEO[0], h_footer), color=(0,0,0)).set_opacity(1.0)
-        # wrap_width=200 pour interdire le retour à la ligne + police ajustée (20)
         txt_footer = creer_texte_pil(txt_footer_content, 24, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], h_footer), duration=DUREE_TOTALE_VIDEO, wrap_width=200)
         
         footer_clip = CompositeVideoClip([bg_footer, txt_footer.set_position("center")], size=(FORMAT_VIDEO[0], h_footer))
         footer_clip = footer_clip.set_position(("center", "bottom")).set_duration(DUREE_TOTALE_VIDEO)
 
-        # Assemblage final
-        final_clips = [video_base, carre_anime, footer_clip]
+        # --- ASSEMBLAGE FINAL ---
+        final_clips = [
+            video_base,          # Fond
+            carre_anime,         # Milieu (Derrière bandeau vert)
+            bandeau_vert_clip,   # Devant (Cache le carré)
+            footer_clip          # Devant tout
+        ]
+        
         if os.path.exists(PATH_LOGO_FIXE):
             final_clips.append(ImageClip(PATH_LOGO_FIXE).set_duration(DUREE_TOTALE_VIDEO).resize(width=int(320*0.66)).set_position(("right", "top")).margin(top=30, right=30, opacity=0))
         
@@ -324,10 +346,10 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo by dj ;)", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo v11.7", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
-col_t.title("🏢 Studio Immo v11.4")
+col_t.title("🏢 Studio Immo v11.7")
 if col_r.button("🔄 Reset Global", use_container_width=True): reset_formulaire()
 
 col_form, col_list = st.columns([1.6, 0.8])
@@ -410,8 +432,3 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
-
-
-
-
-
