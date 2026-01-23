@@ -183,7 +183,7 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         
         # --- INTRO ---
         t1 = creer_texte_pil(titre.upper(), 60, 'white', FONT_NAME, size=(int(1060*0.66), int(272*0.66)), duration=DUREE_INTRO, wrap_width=30).set_position(('center', int(480*0.66)))
-        t2 = creer_texte_pil(desc, 40, 'white', FONT_NAME, size=(int(1060*0.66), int(550*0.66)), duration=DUREE_INTRO, wrap_width=50).set_position(('center', int(480*0.66)))
+        t2 = creer_texte_pil(desc, 40, 'white', FONT_NAME, size=(int(1060*0.66), int(550*0.66)), duration=DUREE_INTRO, wrap_width=50).set_position(('center', int(800*0.66)))
         intro_bg = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_INTRO)
         
         intro_elements = [intro_bg, t1, t2]
@@ -209,7 +209,7 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
                 slide = creer_slide_ken_burns_flou(tmp.name, d_photo)
             
             txt_content = f"{titre.upper()}\n{prix} € | {ville.upper()}"
-            txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], int(180*0.66)), duration=d_photo)
+            txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], int(180*0.66)), duration=d_photo, wrap-width:120)
             
             h_bandeau = int(180*0.66)
             y_bandeau = int(1550*0.66)
@@ -410,5 +410,6 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
 
 
