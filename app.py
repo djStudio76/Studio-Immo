@@ -209,7 +209,7 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
                 slide = creer_slide_ken_burns_flou(tmp.name, d_photo)
             
             txt_content = f"{titre.upper()}\n{prix} € | {ville.upper()}"
-            txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], int(180*0.66)), duration=d_photo, wrap-width:120)
+            txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], int(180*0.66)), duration=d_photo, wrap-width=120)
             
             h_bandeau = int(180*0.66)
             y_bandeau = int(1550*0.66)
@@ -410,6 +410,7 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
 
 
 
