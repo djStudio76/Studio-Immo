@@ -141,7 +141,7 @@ def creer_texte_pil(texte, fontsize, color, font_path, size=None, duration=1.0, 
         text_h = bbox[3] - bbox[1]
         x = (w - text_w) // 2
         if color == 'white':
-            draw.text((x+2, current_y+2), line, font=font, fill="black")
+            draw.text((x+1, current_y+1), line, font=font, fill="black")
         draw.text((x, current_y), line, font=font, fill=color)
         current_y += text_h + 10
 
@@ -172,7 +172,7 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
     output_log = io.StringIO()
     with contextlib.redirect_stdout(output_log), contextlib.redirect_stderr(output_log):
         all_clips = []
-        desc = desc[:255] # Limite stricte
+        desc = desc[:230] # Limite stricte
         photos_list = photos_list[:10] # Sécurité max 10 photos
         
         nb_photos = len(photos_list)
@@ -182,8 +182,8 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         ui_status.text("Phase 1 : Montage...")
         
         # --- INTRO ---
-        t1 = creer_texte_pil(titre.upper(), 75, 'white', FONT_NAME, size=(int(900*0.66), int(200*0.66)), duration=DUREE_INTRO, wrap_width=15).set_position(('center', int(450*0.66)))
-        t2 = creer_texte_pil(desc, 45, 'white', FONT_NAME, size=(int(850*0.66), int(550*0.66)), duration=DUREE_INTRO, wrap_width=35).set_position(('center', int(800*0.66)))
+        t1 = creer_texte_pil(titre.upper(), 60, 'white', FONT_NAME, size=(int(1060*0.66), int(272*0.66)), duration=DUREE_INTRO, wrap_width=30).set_position(('center', int(480*0.66)))
+        t2 = creer_texte_pil(desc, 40, 'white', FONT_NAME, size=(int(1060*0.66), int(550*0.66)), duration=DUREE_INTRO, wrap_width=50).set_position(('center', int(480*0.66)))
         intro_bg = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_INTRO)
         
         intro_elements = [intro_bg, t1, t2]
@@ -267,7 +267,7 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         txt_footer_content = "Transaction - Location - Gestion - Syndic - 01 41 79 04 75"
         bg_footer = ColorClip(size=(FORMAT_VIDEO[0], h_footer), color=(0,0,0)).set_opacity(1.0)
         # wrap_width=200 pour interdire le retour à la ligne + police ajustée (20)
-        txt_footer = creer_texte_pil(txt_footer_content, 20, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], h_footer), duration=DUREE_TOTALE_VIDEO, wrap_width=200)
+        txt_footer = creer_texte_pil(txt_footer_content, 24, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], h_footer), duration=DUREE_TOTALE_VIDEO, wrap_width=200)
         
         footer_clip = CompositeVideoClip([bg_footer, txt_footer.set_position("center")], size=(FORMAT_VIDEO[0], h_footer))
         footer_clip = footer_clip.set_position(("center", "bottom")).set_duration(DUREE_TOTALE_VIDEO)
@@ -410,4 +410,5 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
 
