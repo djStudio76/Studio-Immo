@@ -52,7 +52,7 @@ AGENCES_DATA = {
 
 # --- CONSTANTES (MODE ECO 720p) ---
 DUREE_TOTALE_VIDEO = 32.0   
-DUREE_INTRO = 3.0           
+DUREE_INTRO = 5.0           
 DUREE_OUTRO = 5.0           
 COULEUR_AGENCE_RGB = (0, 136, 144) 
 
@@ -434,3 +434,4 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
