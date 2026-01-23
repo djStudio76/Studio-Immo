@@ -172,8 +172,8 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
     output_log = io.StringIO()
     with contextlib.redirect_stdout(output_log), contextlib.redirect_stderr(output_log):
         all_clips = []
-        desc = desc[:230] # Limite stricte (votre valeur)
-        photos_list = photos_list[:10] # Sécurité max 10 photos
+        desc = desc[:230] 
+        photos_list = photos_list[:10]
         
         nb_photos = len(photos_list)
         t_slides = DUREE_TOTALE_VIDEO - DUREE_INTRO - DUREE_OUTRO
@@ -196,7 +196,6 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         ui_status.text("Phase 1 : Montage...")
         
         # --- INTRO ---
-        # Vos réglages spécifiques conservés
         t1 = creer_texte_pil(titre.upper(), 60, 'white', FONT_NAME, size=(int(1060*0.66), int(272*0.66)), duration=DUREE_INTRO, wrap_width=30).set_position(('center', int(480*0.66)))
         t2 = creer_texte_pil(desc, 40, 'white', FONT_NAME, size=(int(1060*0.66), int(550*0.66)), duration=DUREE_INTRO, wrap_width=50).set_position(('center', int(800*0.66)))
         intro_bg = ColorClip(size=FORMAT_VIDEO, color=COULEUR_AGENCE_RGB).set_duration(DUREE_INTRO)
@@ -216,7 +215,6 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         all_clips.append(CompositeVideoClip(intro_elements).set_duration(DUREE_INTRO).fadein(1.0))
 
         # --- SLIDES (PHOTOS UNIQUEMENT) ---
-        # On ne met plus le bandeau vert ici, juste les images de fond
         for i, p in enumerate(photos_list):
             gc.collect()
             img_pil = ImageOps.exif_transpose(Image.open(p)).convert("RGB")
@@ -273,16 +271,18 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         # On définit wrap_width=50 pour autoriser un titre plus long sur une ligne
         txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], h_bandeau_vert), duration=duree_totale_slides, wrap_width=50)
         
+        # [CORRECTIF] : On force la durée sur le fond de couleur aussi
+        bg_bandeau_vert = ColorClip(size=(FORMAT_VIDEO[0], h_bandeau_vert), color=COULEUR_AGENCE_RGB).set_duration(duree_totale_slides)
+
         bandeau_vert_clip = CompositeVideoClip(
-            [ColorClip(size=(FORMAT_VIDEO[0], h_bandeau_vert), color=COULEUR_AGENCE_RGB), 
-             txt_img.set_position("center")], 
+            [bg_bandeau_vert, txt_img.set_position("center")], 
             size=(FORMAT_VIDEO[0], h_bandeau_vert)
         )
         bandeau_vert_clip = bandeau_vert_clip.set_position(('center', y_bandeau_vert)).set_start(DUREE_INTRO)
         
         # --- CALQUE 4 : BANDEAU BAS NOIR (TOUJOURS AU DESSUS) ---
         txt_footer_content = "Transaction - Location - Gestion - Syndic - 01 41 79 04 75"
-        bg_footer = ColorClip(size=(FORMAT_VIDEO[0], h_footer), color=(0,0,0)).set_opacity(1.0)
+        bg_footer = ColorClip(size=(FORMAT_VIDEO[0], h_footer), color=(0,0,0)).set_opacity(1.0).set_duration(DUREE_TOTALE_VIDEO)
         txt_footer = creer_texte_pil(txt_footer_content, 24, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], h_footer), duration=DUREE_TOTALE_VIDEO, wrap_width=200)
         
         footer_clip = CompositeVideoClip([bg_footer, txt_footer.set_position("center")], size=(FORMAT_VIDEO[0], h_footer))
@@ -299,7 +299,9 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         if os.path.exists(PATH_LOGO_FIXE):
             final_clips.append(ImageClip(PATH_LOGO_FIXE).set_duration(DUREE_TOTALE_VIDEO).resize(width=int(320*0.66)).set_position(("right", "top")).margin(top=30, right=30, opacity=0))
         
-        final_v = CompositeVideoClip(final_clips, size=FORMAT_VIDEO)
+        # [CORRECTIF CRUCIAL] : On force la durée totale sur le composite final
+        final_v = CompositeVideoClip(final_clips, size=FORMAT_VIDEO).set_duration(DUREE_TOTALE_VIDEO)
+        
         if musique != "Aucune":
             aud = AudioFileClip(os.path.join("musique", musique))
             final_v = final_v.set_audio(audio_loop(aud, duration=DUREE_TOTALE_VIDEO).subclip(0, DUREE_TOTALE_VIDEO).audio_fadeout(2))
@@ -346,10 +348,10 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo v11.7", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo v11.8", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
-col_t.title("🏢 Studio Immo v11.7")
+col_t.title("🏢 Studio Immo v11.8")
 if col_r.button("🔄 Reset Global", use_container_width=True): reset_formulaire()
 
 col_form, col_list = st.columns([1.6, 0.8])
