@@ -167,7 +167,7 @@ def creer_slide_ken_burns_flou(image_path, duree):
     )
     return CompositeVideoClip([ColorClip(size=FORMAT_VIDEO, color=(15,15,15)).set_duration(duree), bg_clip.set_position("center"), fg_zoom.set_position(pos_func)], size=FORMAT_VIDEO).set_duration(duree)
 
-# --- FORMAT TEL ---#
+# --- FORMAT TEL & PRIX---#
 def formater_telephone(numero):
     """Transforme 0612345678 en 06 12 34 56 78"""
     if not numero: return ""
@@ -177,6 +177,17 @@ def formater_telephone(numero):
     if len(clean) == 10:
         return " ".join([clean[i:i+2] for i in range(0, 10, 2)])
     return numero # Sinon on retourne tel quel
+    
+def formater_prix(prix):
+    """Transforme 380000 en 380 000"""
+    if not prix: return ""
+    try:
+        # On enlève les espaces ou symboles parasites pour avoir un nombre pur
+        clean = re.sub(r'\D', '', str(prix)) 
+        # On formate avec une virgule, puis on remplace la virgule par un espace
+        return "{:,}".format(int(clean)).replace(",", " ")
+    except ValueError:
+    return prix # Si ce n'est pas un nombre (ex: "Nous consulter"), on renvoie tel quel
 # --- GENERATION VIDEO ---
 def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_prenom, p_tel, p_email, p_adr, p_photo, agence_nom, ui_status, ui_progress, ui_console):
     output_log = io.StringIO()
@@ -279,7 +290,8 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         carre_anime = ColorClip(size=(TAILLE_CARRE, TAILLE_CARRE), color=COULEUR_AGENCE_RGB).set_duration(DUREE_TOTALE_VIDEO).set_position(pos_carre)
         
         # --- CALQUE 3 : LE BANDEAU VERT (PRIX/VILLE) ---
-        txt_content = f"{titre.upper()}\n{prix} € | {ville.upper()}"
+        prix_clean = formater_prix(prix)
+        txt_content = f"{titre.upper()}\n{prix_clean} € | {ville.upper()}"
         # On définit wrap_width=50 pour autoriser un titre plus long sur une ligne
         txt_img = creer_texte_pil(txt_content, 40, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], h_bandeau_vert), duration=duree_totale_slides, wrap_width=50)
         
@@ -446,3 +458,4 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
