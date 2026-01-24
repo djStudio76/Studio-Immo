@@ -54,8 +54,8 @@ AGENCES_DATA = {
             {"nom": "BOUIGEAU", "prenom": "Emma", "tel": "0648485360", "email": "emma.bouigeau@ladresse.com"}
         ]
     },
-    "Maison Alfort": {
-        "adresse": "8 avenue de la République, 94700 Maison-Alfort",
+    "Maisons Alfort": {
+        "adresse": "8 avenue de la République, 94700 Maisons-Alfort",
         "img": "agence-maf.jpg",
         "collaborateurs": [
             {"nom": "LAIGLE", "prenom": "Paul", "tel": "0658193861", "email": "paul.laigle@ladresse.com"},
@@ -500,4 +500,5 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
 
