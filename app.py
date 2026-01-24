@@ -452,21 +452,22 @@ with col_form:
                     if b3.button("➡️", key=f"N_{idx}") and idx < len(st.session_state.photo_list) - 1:
                         st.session_state.photo_list[idx], st.session_state.photo_list[idx+1] = st.session_state.photo_list[idx+1], st.session_state.photo_list[idx]; st.rerun()
 
-if st.button("🎬 GÉNÉRER LA VIDÉO", use_container_width=True, type="primary"):
+# --- BOUTON DE GÉNÉRATION ---
+    if st.button("🎬 GÉNÉRER LA VIDÉO", use_container_width=True, type="primary"):
         if not st.session_state.photo_list: st.error("Ajoutez des photos.")
         else:
             ui_s, ui_p, ui_c = st.empty(), st.progress(0.0), st.expander("Logs").empty()
             try:
-                # Appel de la fonction avec les données AUTOMATIQUES
+                # Appel avec les données AUTOMATIQUES (selected_user_data)
                 chemin = generer_video(
                     st.session_state.photo_list, 
                     titre, desc, prix, ville, musique_choisie, 
-                    selected_user_data['nom'],      # Nom auto
-                    selected_user_data['prenom'],   # Prénom auto
-                    selected_user_data['tel'],      # Tel auto
-                    selected_user_data['email'],    # Email auto
-                    p_adr,                          # Adresse agence auto
-                    path_user_photo,                # Chemin photo auto
+                    selected_user_data['nom'], 
+                    selected_user_data['prenom'], 
+                    selected_user_data['tel'], 
+                    selected_user_data['email'], 
+                    p_adr, 
+                    path_user_photo, 
                     choix_agence, 
                     ui_s, ui_p, ui_c
                 )
@@ -478,9 +479,12 @@ if st.button("🎬 GÉNÉRER LA VIDÉO", use_container_width=True, type="primary
                 st.error(f"Une erreur est survenue : {e}")
                 st.code(traceback.format_exc())
             
-        if 'last_video_path' in st.session_state and os.path.exists(st.session_state['last_video_path']):
+    # --- KIT SOCIAL (C'est ici que vous aviez l'erreur) ---
+    if 'last_video_path' in st.session_state and os.path.exists(st.session_state['last_video_path']):
+        # Notez le décalage (indentation) des lignes ci-dessous par rapport au 'if'
         v_titre, v_ville, v_prix, v_tel = st.session_state.get('last_video_data', ("Bien", "Ville", "0", "06.."))
-        afficher_kit_social(v_titre, v_ville, v_prix, v_tel)
+        # On applique le formatage aussi ici pour que le texte à copier soit propre
+        afficher_kit_social(v_titre, v_ville, formater_prix(v_prix), formater_telephone(v_tel))
 
 with col_list:
     st.subheader("📂 Historique")
@@ -496,10 +500,3 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
-
-
-
-
-
-
-
