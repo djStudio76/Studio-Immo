@@ -176,7 +176,7 @@ def formater_telephone(numero):
     # Si c'est un numéro à 10 chiffres (standard français)
     if len(clean) == 10:
         return " ".join([clean[i:i+2] for i in range(0, 10, 2)])
-    return numero # Sinon on retourne tel quel
+    return numero
     
 def formater_prix(prix):
     """Transforme 380000 en 380 000"""
@@ -187,7 +187,7 @@ def formater_prix(prix):
         # On formate avec une virgule, puis on remplace la virgule par un espace
         return "{:,}".format(int(clean)).replace(",", " ")
     except ValueError:
-    return prix # Si ce n'est pas un nombre (ex: "Nous consulter"), on renvoie tel quel
+    return prix
 # --- GENERATION VIDEO ---
 def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_prenom, p_tel, p_email, p_adr, p_photo, agence_nom, ui_status, ui_progress, ui_console):
     output_log = io.StringIO()
@@ -458,4 +458,5 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
 
