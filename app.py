@@ -478,7 +478,7 @@ if st.button("🎬 GÉNÉRER LA VIDÉO", use_container_width=True, type="primary
                 st.error(f"Une erreur est survenue : {e}")
                 st.code(traceback.format_exc())
             
-    if 'last_video_path' in st.session_state and os.path.exists(st.session_state['last_video_path']):
+        if 'last_video_path' in st.session_state and os.path.exists(st.session_state['last_video_path']):
         v_titre, v_ville, v_prix, v_tel = st.session_state.get('last_video_data', ("Bien", "Ville", "0", "06.."))
         afficher_kit_social(v_titre, v_ville, v_prix, v_tel)
 
@@ -496,6 +496,7 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
 
 
 
