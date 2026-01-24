@@ -169,25 +169,19 @@ def creer_slide_ken_burns_flou(image_path, duree):
 
 # --- FORMAT TEL & PRIX---#
 def formater_telephone(numero):
-    """Transforme 0612345678 en 06 12 34 56 78"""
     if not numero: return ""
-    # On ne garde que les chiffres
-    clean = re.sub(r'\D', '', str(numero))
-    # Si c'est un numéro à 10 chiffres (standard français)
+        clean = re.sub(r'\D', '', str(numero))
     if len(clean) == 10:
         return " ".join([clean[i:i+2] for i in range(0, 10, 2)])
     return numero
     
 def formater_prix(prix):
-    """Transforme 380000 en 380 000"""
     if not prix: return ""
     try:
-        # On enlève les espaces ou symboles parasites pour avoir un nombre pur
         clean = re.sub(r'\D', '', str(prix)) 
-        # On formate avec une virgule, puis on remplace la virgule par un espace
         return "{:,}".format(int(clean)).replace(",", " ")
     except ValueError:
-    return prix
+        return prix
 # --- GENERATION VIDEO ---
 def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_prenom, p_tel, p_email, p_adr, p_photo, agence_nom, ui_status, ui_progress, ui_console):
     output_log = io.StringIO()
@@ -458,5 +452,6 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
 
 
