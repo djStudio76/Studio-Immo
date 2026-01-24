@@ -35,18 +35,32 @@ if sys.platform == 'win32':
         pass
 
 # --- DONNÉES AGENCES ---
+# --- DONNÉES AGENCES & COLLABORATEURS ---
 AGENCES_DATA = {
     "Charenton": {
         "adresse": "92 bis rue de Paris, 94220 Charenton-le-Pont",
-        "img": "agence-cht.jpg"
+        "img": "agence-cht.jpg",
+        "collaborateurs": [
+            {"nom": "JOURNO", "prenom": "Daniel", "tel": "0621017713", "email": "daniel.journo@ladresse.com"},
+            {"nom": "MILANI", "prenom": "Jean-Marie", "tel": "0613876229", "email": "jean-marie.milani@ladresse.com"},
+            {"nom": "DEVAUX", "prenom": "Nicolas", "tel": "0767171388", "email": "nicolas.devaux@ladresse.com"}
+        ]
     },
     "Alfortville": {
         "adresse": "125 rue Paul Vaillant Couturier, 94140 Alfortville",
-        "img": "agence-alf.jpg"
+        "img": "agence-alf.jpg",
+        "collaborateurs": [
+            {"nom": "CALES", "prenom": "Guillaume", "tel": "0786748498", "email": "guillaume.cales@ladresse.com"},
+            {"nom": "BOUIGEAU", "prenom": "Emma", "tel": "0648485360", "email": "emma.bouigeau@ladresse.com"}
+        ]
     },
     "Maison Alfort": {
         "adresse": "8 avenue de la République, 94700 Maison-Alfort",
-        "img": "agence-maf.jpg"
+        "img": "agence-maf.jpg",
+        "collaborateurs": [
+            {"nom": "LAIGLE", "prenom": "Paul", "tel": "0658193861", "email": "paul.laigle@ladresse.com"},
+            {"nom": "LAURENCEAU", "prenom": "Delphine", "tel": "0611662652", "email": "delphine.laurenceau@ladresse.com"}
+        ]
     }
 }
 
@@ -375,18 +389,36 @@ if col_r.button("🔄 Reset Global", use_container_width=True): reset_formulaire
 col_form, col_list = st.columns([1.6, 0.8])
 
 with col_form:
-    with st.expander("👤 Identité", expanded=True):
-        c1, c2, c3 = st.columns(3)
-        p_pre, p_nom, p_tel = c1.text_input("Prénom", value="", key="p_pre"), c2.text_input("Nom", value="", key="p_nom"), c3.text_input("📞 Tél", value="06", key="p_tel")
+    with st.expander("👤 Identité (Sélection Auto)", expanded=True):
+        col_ag, col_user = st.columns(2)
         
-        ca, cb = st.columns(2)
-        p_email = ca.text_input("✉️ Email", value="@ladresse.com", key="p_mail")
+        # 1. Choix Agence
+        choix_agence = col_ag.selectbox("📍 Agence", list(AGENCES_DATA.keys()))
+        data_agence = AGENCES_DATA[choix_agence]
         
-        choix_agence = cb.selectbox("📍 Choisir l'Agence", list(AGENCES_DATA.keys()))
-        adresse_auto = AGENCES_DATA[choix_agence]["adresse"]
-        p_adr = st.text_input("Adresse Agence (Auto)", value=adresse_auto, disabled=True)
+        # 2. Choix Collaborateur (basé sur l'agence choisie)
+        liste_collabs = data_agence["collaborateurs"]
+        noms_collabs = [f"{c['prenom']} {c['nom']}" for c in liste_collabs]
+        choix_collab = col_user.selectbox("👤 Collaborateur", noms_collabs)
         
-        p_photo = st.file_uploader("🖼️ Photo Profil", type=['jpg', 'png'])
+        # 3. Récupération des données et de la photo
+        # On retrouve le dictionnaire correspondant au nom choisi
+        selected_user_data = next(c for c in liste_collabs if f"{c['prenom']} {c['nom']}" == choix_collab)
+        
+        # Chemin de la photo : images/id/prenom+nom.jpg (en minuscule)
+        nom_fichier_photo = f"{selected_user_data['prenom']}+{selected_user_data['nom']}.jpg".lower()
+        path_user_photo = os.path.join("images", "id", nom_fichier_photo)
+        
+        # Adresse automatique
+        p_adr = data_agence["adresse"]
+        
+        # Affichage de contrôle
+        st.info(f"📞 {formater_telephone(selected_user_data['tel'])} | ✉️ {selected_user_data['email']}")
+        
+        if os.path.exists(path_user_photo):
+            st.image(path_user_photo, width=80, caption="Photo profil")
+        else:
+            st.warning(f"⚠️ Photo introuvable : {nom_fichier_photo}")
 
     with st.expander("🏠 Bien", expanded=False):
         c_t, c_p, c_v = st.columns(3)
@@ -420,15 +452,27 @@ with col_form:
                     if b3.button("➡️", key=f"N_{idx}") and idx < len(st.session_state.photo_list) - 1:
                         st.session_state.photo_list[idx], st.session_state.photo_list[idx+1] = st.session_state.photo_list[idx+1], st.session_state.photo_list[idx]; st.rerun()
 
-    if st.button("🎬 GÉNÉRER LA VIDÉO", use_container_width=True, type="primary"):
+if st.button("🎬 GÉNÉRER LA VIDÉO", use_container_width=True, type="primary"):
         if not st.session_state.photo_list: st.error("Ajoutez des photos.")
         else:
             ui_s, ui_p, ui_c = st.empty(), st.progress(0.0), st.expander("Logs").empty()
             try:
-                chemin = generer_video(st.session_state.photo_list, titre, desc, prix, ville, musique_choisie, p_nom, p_pre, p_tel, p_email, p_adr, p_photo, choix_agence, ui_s, ui_p, ui_c)
+                # Appel de la fonction avec les données AUTOMATIQUES
+                chemin = generer_video(
+                    st.session_state.photo_list, 
+                    titre, desc, prix, ville, musique_choisie, 
+                    selected_user_data['nom'],      # Nom auto
+                    selected_user_data['prenom'],   # Prénom auto
+                    selected_user_data['tel'],      # Tel auto
+                    selected_user_data['email'],    # Email auto
+                    p_adr,                          # Adresse agence auto
+                    path_user_photo,                # Chemin photo auto
+                    choix_agence, 
+                    ui_s, ui_p, ui_c
+                )
                 st.success("Vidéo terminée !")
                 st.session_state['last_video_path'] = chemin
-                st.session_state['last_video_data'] = (titre, ville, prix, p_tel)
+                st.session_state['last_video_data'] = (titre, ville, prix, selected_user_data['tel'])
                 st.rerun()
             except Exception as e:
                 st.error(f"Une erreur est survenue : {e}")
@@ -452,6 +496,7 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
 
 
 
