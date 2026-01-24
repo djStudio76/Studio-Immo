@@ -167,6 +167,16 @@ def creer_slide_ken_burns_flou(image_path, duree):
     )
     return CompositeVideoClip([ColorClip(size=FORMAT_VIDEO, color=(15,15,15)).set_duration(duree), bg_clip.set_position("center"), fg_zoom.set_position(pos_func)], size=FORMAT_VIDEO).set_duration(duree)
 
+# --- FORMAT TEL ---#
+def formater_telephone(numero):
+    """Transforme 0612345678 en 06 12 34 56 78"""
+    if not numero: return ""
+    # On ne garde que les chiffres
+    clean = re.sub(r'\D', '', str(numero))
+    # Si c'est un numéro à 10 chiffres (standard français)
+    if len(clean) == 10:
+        return " ".join([clean[i:i+2] for i in range(0, 10, 2)])
+    return numero # Sinon on retourne tel quel
 # --- GENERATION VIDEO ---
 def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_prenom, p_tel, p_email, p_adr, p_photo, agence_nom, ui_status, ui_progress, ui_console):
     output_log = io.StringIO()
@@ -239,7 +249,9 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         elems_outro.append(t_nom)
         
         # Infos Texte
-        infos_str = f"Tél : {p_tel}\n\nEmail : {p_email}\n\nAgence : {p_adr}"
+        # On nettoie le numéro avant de l'afficher
+        p_tel_clean = formater_telephone(p_tel)
+        infos_str = f"Tél : {p_tel_clean}\n\nEmail : {p_email}\n\nAgence : {p_adr}"
         t_infos = creer_texte_pil(infos_str, 45, 'white', FONT_NAME, size=(int(900*0.66), int(500*0.66)), duration=DUREE_OUTRO, wrap_width=35).set_position(('center', int(1050*0.66)))
         elems_outro.append(t_infos)
         
@@ -283,7 +295,7 @@ def generer_video(photos_list, titre, desc, prix, ville, musique, p_nom, p_preno
         # --- CALQUE 4 : BANDEAU BAS NOIR (TOUJOURS AU DESSUS) ---
         txt_footer_content = "Transaction - Location - Gestion - Syndic - 01 41 79 04 75"
         bg_footer = ColorClip(size=(FORMAT_VIDEO[0], h_footer), color=(0,0,0)).set_opacity(1.0).set_duration(DUREE_TOTALE_VIDEO)
-        txt_footer = creer_texte_pil(txt_footer_content, 24, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], h_footer), duration=DUREE_TOTALE_VIDEO, wrap_width=200)
+        txt_footer = creer_texte_pil(txt_footer_content, 30, 'white', FONT_NAME, size=(FORMAT_VIDEO[0], h_footer), duration=DUREE_TOTALE_VIDEO, wrap_width=200)
         
         footer_clip = CompositeVideoClip([bg_footer, txt_footer.set_position("center")], size=(FORMAT_VIDEO[0], h_footer))
         footer_clip = footer_clip.set_position(("center", "bottom")).set_duration(DUREE_TOTALE_VIDEO)
@@ -434,4 +446,3 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
-
