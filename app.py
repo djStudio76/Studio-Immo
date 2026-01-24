@@ -380,10 +380,10 @@ Pour visiter ou pour plus d'infos :
         st.link_button("🟣 Ouvrir Instagram", "https://www.instagram.com/", use_container_width=True)
 
 # --- INTERFACE ---
-st.set_page_config(page_title="Studio Immo v11.8", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Studio Immo v2.0 by dj ;)", page_icon="🏢", layout="wide")
 
 col_t, col_r = st.columns([4, 1])
-col_t.title("🏢 Studio Immo v11.8")
+col_t.title("🏢 Studio Immo")
 if col_r.button("🔄 Reset Global", use_container_width=True): reset_formulaire()
 
 col_form, col_list = st.columns([1.6, 0.8])
@@ -500,5 +500,6 @@ with col_list:
                 with open(p_f, "rb") as fi: c_dl.download_button("💾", fi, file_name=f, key=f"dl_{f}")
                 if c_pl.button("▶️", key=f"play_{f}"): play_video_popup(p_f)
                 if c_rm.button("🗑️", key=f"del_{f}"): os.remove(p_f); st.rerun()
+
 
 
